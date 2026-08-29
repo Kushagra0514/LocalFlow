@@ -1,0 +1,10 @@
+# --- Hotkey Configuration ---
+# Hold this key or combination to record.
+# For the Windows Copilot key, use: f23
+# Put modifiers first and one trigger key last.
+# Other examples: f12, ctrl, right shift, ctrl+shift+space
+HOTKEY=f23
+
+# Always copy the result. When true, also send Ctrl+V to whichever application
+# is focused when transcription and cleanup finish.
+AUTO_PASTE=true

@@ -1,0 +1,17 @@
+[project]
+name = "localflow"
+version = "0.1.0"
+description = "Fully local CPU-first push-to-talk dictation for Windows"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "keyboard>=0.13.5",
+    "numpy>=2.5.2",
+    "sounddevice>=0.5.6",
+    "pyperclip>=1.8.2",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller==6.22.2",
+]

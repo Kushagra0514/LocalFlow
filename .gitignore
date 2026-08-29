@@ -1,0 +1,30 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets and local environment overrides
+.env
+.env.*
+
+# Downloaded runtimes, models, and benchmark artifacts
+.local/
+models/
+runtimes/
+*.gguf
+ggml-*.bin
+whisper-cli.exe
+llama-*.exe
+
+# Runtime leftovers and generated logs
+localflow-*/
+recording.wav
+transcript.txt
+logs/
+*.log

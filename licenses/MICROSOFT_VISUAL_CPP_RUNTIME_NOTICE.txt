@@ -1,0 +1,10 @@
+Microsoft Visual C++ Runtime
+Copyright Microsoft Corporation. All rights reserved.
+
+LocalFlow's Windows package contains unmodified Microsoft Visual C++ Runtime
+files required by its packaged native executables. Redistribution is subject
+to the applicable Microsoft Software License Terms and distributable-code
+list. See:
+
+https://learn.microsoft.com/visualstudio/releases/2026/redistribution
+https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files

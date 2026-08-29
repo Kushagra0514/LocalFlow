@@ -4,11 +4,12 @@ Date: 2026-08-28
 
 ## Outcome
 
-LocalFlow now has a first-run model installer and a repeatable portable Windows
-x64 build. The package includes Python and the pinned whisper.cpp and llama.cpp
-CPU runtimes, but not the roughly 519 MiB of model weights. On first run, the
-application downloads those weights directly from their official repositories
-into `%LOCALAPPDATA%\LocalFlow\models`.
+LocalFlow now has first-run model management, a repeatable portable Windows x64
+build, and a one-click per-user Windows installer. The installer includes the
+application, Python, and the pinned whisper.cpp and llama.cpp CPU runtimes, but
+not the roughly 519 MiB of model weights. On first run, the application
+downloads those weights directly from their official repositories into
+`%LOCALAPPDATA%\LocalFlow\models`.
 
 ## Reproducibility and integrity
 
@@ -40,12 +41,21 @@ an interrupted partial is reported and restarted on the next run.
 The package does not require Python, a compiler, Git, CMake, or other
 development tools on the target computer.
 
-Final package artifact, including the Phase 8 documentation:
+`packaging/build_installer.ps1` runs that application build and compiles
+`packaging/LocalFlow.iss` with Inno Setup. The resulting current-user installer
+requires no administrator access, creates Start Menu and optional desktop
+shortcuts, preserves an existing `config.txt` during upgrades, registers a
+Windows uninstaller, and optionally launches LocalFlow after installation.
+
+Artifacts from the installer build:
 
 - Path: `dist/LocalFlow-windows-x64.zip`
-- Size: 43,712,434 bytes (41.7 MiB compressed)
-- Extracted size: 105,510,809 bytes (100.6 MiB)
-- SHA-256: `1186f506e0ae3fbb79fec631a74ca66ed34f9b6565371531125c14408ca42b05`
+- Size: 43,713,956 bytes (41.7 MiB compressed)
+- SHA-256: `f683babfeb813b45f0cd49a186e5048771fcd6a26ec104bc72a92872ace70278`
+- Installer path: `dist/LocalFlow-Setup.exe`
+- Installer size: 27,817,820 bytes (26.5 MiB)
+- Installer SHA-256: `4baeb4ab5d0ba9b3d0e695f3d97dcf49118994072f742e2c646a5194c8eb053d`
+- Code-signing status: unsigned
 
 ## Verification
 
@@ -60,6 +70,9 @@ Final package artifact, including the Phase 8 documentation:
   and confirmed no test files remained.
 - Archive inspection confirmed that neither `.bin` nor `.gguf` model weights
   are accidentally bundled, while the required licenses and notices are.
+- `packaging/test_installer.ps1` silently installed the complete application to
+  an isolated directory, launched the installed executable, ran the registered
+  uninstaller, and confirmed that cleanup completed.
 
 The isolated test exercises the portable install and removal flow, but it is
 not a substitute for a separate clean Windows account. That checklist item

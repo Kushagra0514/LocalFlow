@@ -73,6 +73,8 @@ Results: [`benchmarks/PHASE6_RESULTS.md`](benchmarks/PHASE6_RESULTS.md).
 - [x] Store models outside the source tree in a user data directory.
 - [x] Include runtime, model, and package license notices.
 - [x] Produce a repeatable Windows x64 package without developer tools.
+- [x] Produce a one-click per-user Windows installer with shortcuts and an
+  uninstaller.
 - [ ] Test install and removal on a separate clean Windows account.
 
 Results: [`benchmarks/PHASE7_RESULTS.md`](benchmarks/PHASE7_RESULTS.md).

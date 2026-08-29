@@ -117,7 +117,7 @@ class WhisperCppIntegrationTest(unittest.TestCase):
         missing = Path(__file__).with_name("missing-whisper-cli.exe")
         with patch.object(main, "WHISPER_CLI", missing):
             with self.assertRaisesRegex(FileNotFoundError, "installation is incomplete"):
-                main.transcribe_audio(np.zeros(16_000, dtype=np.float32))
+                main.transcribe_audio(np.ones(16_000, dtype=np.float32) * 0.1)
 
     def test_missing_model_has_clear_error(self):
         missing = Path(__file__).with_name("missing-whisper-model.bin")
@@ -125,7 +125,7 @@ class WhisperCppIntegrationTest(unittest.TestCase):
             with self.assertRaisesRegex(
                 FileNotFoundError, "(?s)installation is incomplete.*missing-whisper-model"
             ):
-                main.transcribe_audio(np.zeros(16_000, dtype=np.float32))
+                main.transcribe_audio(np.ones(16_000, dtype=np.float32) * 0.1)
 
     def test_silence_skips_transcription(self):
         self.assertEqual(main.transcribe_audio(np.zeros(16_000, dtype=np.float32)), "")

@@ -20,16 +20,24 @@ older CPUs may take substantially longer and still need representative testing.
 LocalFlow is English-only in this release. Both the `base.en` transcription
 model and the S1-mini by Superwhisper cleanup configuration target English.
 
-## Install the Windows package
+## Install LocalFlow
 
-1. Download `LocalFlow-windows-x64.zip` and extract the whole folder.
-2. Run `LocalFlow.exe` from the extracted folder. Do not run it inside the ZIP.
-3. Keep the terminal open while LocalFlow downloads and verifies the two model
+1. Open the [LocalFlow releases page](https://github.com/Kushagra0514/LocalFlow/releases).
+2. Download `LocalFlow-Setup.exe` from the newest release.
+3. Double-click it, complete the installer, and open LocalFlow from the Start
+   Menu.
+4. Keep the terminal open while LocalFlow downloads and verifies the two model
    files on first run. The one-time download is about 519 MiB.
-4. Wait for the `Ready!` message.
+5. Wait for the `Ready!` message.
 
-The package includes Python and the pinned whisper.cpp and llama.cpp CPU
-runtimes. Python, Git, CMake, a compiler, and development tools are not needed.
+The installer includes LocalFlow, Python, and the pinned whisper.cpp and
+llama.cpp CPU runtimes. Python, Git, CMake, a compiler, and development tools
+are not needed on the user's computer. LocalFlow is installed only for the
+current Windows user, so the installer does not request administrator access.
+
+The current installer is not code-signed, so Windows may identify its publisher
+as unknown. Download it only from the official LocalFlow release page and
+compare its SHA-256 with the value in that release's notes before running it.
 
 Models are stored outside the application folder in
 `%LOCALAPPDATA%\LocalFlow\models`. Downloads use a `.part` file and are checked
@@ -64,7 +72,7 @@ Keep the terminal window open. Press `Ctrl+C` there for a clean shutdown.
 ## Configuration
 
 Edit `config.txt` beside `LocalFlow.exe` while LocalFlow is stopped, then start
-it again. The default is:
+it again. Installer upgrades preserve this file. The default is:
 
 ```text
 HOTKEY=f23
@@ -173,9 +181,9 @@ slower than the published development-system measurement.
 
 ## Remove LocalFlow
 
-Delete the extracted LocalFlow folder. To remove the downloaded models too,
-delete `%LOCALAPPDATA%\LocalFlow`. LocalFlow does not install a service or write
-configuration to the system registry.
+Open Windows **Settings → Apps → Installed apps**, find LocalFlow, and choose
+**Uninstall**. To remove the downloaded models too, delete
+`%LOCALAPPDATA%\LocalFlow`. LocalFlow does not install a background service.
 
 Third-party versions, checksums, licenses, and notices are listed in
 `THIRD_PARTY_NOTICES.md` and the `licenses` folder.
@@ -188,7 +196,12 @@ Development uses the exact dependency versions in `uv.lock`:
 $env:UV_CACHE_DIR = ".local\packaging\uv-cache"
 uv sync --frozen
 uv run --frozen python -m unittest discover -s tests -v
-.\packaging\build_windows.ps1
+.\packaging\build_installer.ps1
 .\packaging\test_package.ps1
+.\packaging\test_installer.ps1
 .\benchmarks\measure_release.ps1
 ```
+
+`build_installer.ps1` requires [Inno Setup](https://jrsoftware.org/isdl.php) on
+the development computer. It first creates the complete application bundle and
+then writes the single user-facing installer to `dist\LocalFlow-Setup.exe`.

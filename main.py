@@ -343,11 +343,11 @@ def read_pcm16_wav(path):
 
 
 def transcribe_audio(audio_data):
-    validate_whisper_installation()
     samples = np.asarray(audio_data, dtype=np.float32).reshape(-1)
     # ponytail: simple energy gate; use whisper.cpp VAD if noisy rooms defeat it.
     if not samples.size or np.sqrt(np.mean(np.square(samples))) < MIN_AUDIO_RMS:
         return ""
+    validate_whisper_installation()
 
     with tempfile.TemporaryDirectory(prefix="localflow-") as temp_dir:
         temp_dir = Path(temp_dir)

@@ -55,6 +55,26 @@ class ModelManagementTest(unittest.TestCase):
         self.assertEqual(result, path)
         urlopen.assert_not_called()
 
+    def test_download_combines_bundled_and_system_certificates(self):
+        payload = b"model data"
+        context = MagicMock()
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                patch.object(main.certifi, "where", return_value="bundled-ca.pem"),
+                patch.object(
+                    main.ssl, "create_default_context", return_value=context
+                ) as create_context,
+                patch.object(
+                    main.urllib.request, "urlopen", return_value=BytesIO(payload)
+                ) as urlopen,
+                patch("sys.stdout", new_callable=StringIO),
+            ):
+                main.ensure_model(self.model_spec(payload), directory)
+
+        create_context.assert_called_once_with(cafile="bundled-ca.pem")
+        context.load_default_certs.assert_called_once_with()
+        self.assertIs(urlopen.call_args.kwargs["context"], context)
+
     def test_corrupt_cached_model_is_replaced_by_verified_download(self):
         payload = b"model data"
         with tempfile.TemporaryDirectory() as directory:
@@ -103,6 +123,20 @@ class ModelManagementTest(unittest.TestCase):
 
             self.assertFalse(destination.exists())
             self.assertFalse(partial.exists())
+
+
+class StartupErrorTest(unittest.TestCase):
+    def test_frozen_double_click_keeps_startup_error_visible(self):
+        with (
+            patch.object(main.sys, "frozen", True, create=True),
+            patch.object(main, "configure", side_effect=RuntimeError("test failure")),
+            patch("builtins.input") as wait_for_enter,
+            patch("sys.stdout", new_callable=StringIO),
+        ):
+            exit_code = main.main([])
+
+        self.assertEqual(exit_code, 1)
+        wait_for_enter.assert_called_once_with("Press Enter to close LocalFlow.")
 
 
 class WhisperCppIntegrationTest(unittest.TestCase):

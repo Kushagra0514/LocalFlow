@@ -1,5 +1,5 @@
 #define AppName "LocalFlow"
-#define AppVersion "0.1.0"
+#define AppVersion "0.1.1"
 #define AppPublisher "Kushagra0514"
 #define AppUrl "https://github.com/Kushagra0514/LocalFlow"
 

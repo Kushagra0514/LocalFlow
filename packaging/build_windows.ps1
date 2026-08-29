@@ -200,7 +200,7 @@ $RuntimeHashes = Get-ChildItem -Path (Join-Path $PackageRoot "runtime") -File -R
     }
 $Manifest = [ordered]@{
     application = "LocalFlow"
-    version = "0.1.0"
+    version = "0.1.1"
     platform = "windows-x64"
     whisper_cpp = "b4938"
     llama_cpp = "b10516"

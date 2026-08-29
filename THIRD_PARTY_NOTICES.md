@@ -13,7 +13,7 @@ dependencies.
 | S1-mini by Superwhisper Q4_K_M | `s1-mini-q4_k_m.gguf` | Apache-2.0 derivative terms and required naming notice; see `licenses/S1_MINI_LICENSE.txt` and `licenses/S1_MINI_NOTICE.txt` |
 | PortAudio | bundled through sounddevice | PortAudio license; see `licenses/PORTAUDIO_LICENSE.txt` |
 | Microsoft Visual C++ Runtime | bundled unmodified with native executables | Microsoft redistribution notice; see `licenses/MICROSOFT_VISUAL_CPP_RUNTIME_NOTICE.txt` |
-| CPython, NumPy, keyboard, pyperclip, sounddevice, PyInstaller | pinned in `uv.lock` | License copies exported into packaged `licenses/python-packages` |
+| CPython, certifi, NumPy, keyboard, pyperclip, sounddevice, PyInstaller | pinned in `uv.lock` | License copies exported into packaged `licenses/python-packages` |
 
 ## Model and runtime integrity
 

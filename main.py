@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -14,12 +15,13 @@ from enum import Enum
 from pathlib import Path
 from typing import NamedTuple
 
+import certifi
 import keyboard
 import numpy as np
 import pyperclip
 import sounddevice as sd
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.1.1"
 APP_DIR = (
     Path(sys.executable).resolve().parent
     if getattr(sys, "frozen", False)
@@ -175,6 +177,13 @@ def file_sha256(path):
     return digest.hexdigest()
 
 
+def download_ssl_context():
+    """Trust current public roots plus certificates managed by Windows."""
+    context = ssl.create_default_context(cafile=certifi.where())
+    context.load_default_certs()
+    return context
+
+
 def ensure_model(spec, model_dir=None):
     """Download one pinned model atomically and reject unexpected bytes."""
     model_dir = Path(model_dir or MODEL_DIR)
@@ -203,7 +212,9 @@ def ensure_model(spec, model_dir=None):
     downloaded = 0
     next_progress = 0
     try:
-        with urllib.request.urlopen(request, timeout=30) as response, partial.open("wb") as file:
+        with urllib.request.urlopen(
+            request, timeout=30, context=download_ssl_context()
+        ) as response, partial.open("wb") as file:
             while chunk := response.read(1024 * 1024):
                 file.write(chunk)
                 downloaded += len(chunk)
@@ -935,6 +946,11 @@ def main(argv=None):
             run_release_smoke_test(argv[1])
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as error:
         print(f"ERROR: {error}")
+        if getattr(sys, "frozen", False) and not argv:
+            try:
+                input("Press Enter to close LocalFlow.")
+            except EOFError:
+                pass
         return 1
 
     if smoke_test:

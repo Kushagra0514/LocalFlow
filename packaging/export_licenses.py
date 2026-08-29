@@ -8,6 +8,7 @@ from pathlib import Path
 
 PACKAGE_DISTRIBUTIONS = (
     "altgraph",
+    "certifi",
     "cffi",
     "keyboard",
     "numpy",

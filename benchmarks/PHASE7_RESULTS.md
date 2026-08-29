@@ -23,7 +23,9 @@ downloads those weights directly from their official repositories into
 
 Downloads go to a sibling `.part` file. LocalFlow checks the exact byte length
 and SHA-256 digest before an atomic rename. A mismatch is deleted and rejected;
-an interrupted partial is reported and restarted on the next run.
+an interrupted partial is reported and restarted on the next run. Version 0.1.1
+uses the pinned certifi public roots together with certificates managed by
+Windows for verified HTTPS model downloads.
 
 ## Packaging
 
@@ -50,18 +52,21 @@ Windows uninstaller, and optionally launches LocalFlow after installation.
 Artifacts from the installer build:
 
 - Path: `dist/LocalFlow-windows-x64.zip`
-- Size: 43,713,956 bytes (41.7 MiB compressed)
-- SHA-256: `f683babfeb813b45f0cd49a186e5048771fcd6a26ec104bc72a92872ace70278`
+- Size: 43,847,025 bytes (41.8 MiB compressed)
+- SHA-256: `3d8c52edc5c39630b7b9b65a3c5373edd4d93e8377b46ab86929442a0c4b654c`
 - Installer path: `dist/LocalFlow-Setup.exe`
-- Installer size: 27,817,820 bytes (26.5 MiB)
-- Installer SHA-256: `4baeb4ab5d0ba9b3d0e695f3d97dcf49118994072f742e2c646a5194c8eb053d`
+- Installer size: 27,943,378 bytes (26.6 MiB)
+- Installer SHA-256: `1b2c74395127c9ef2767465948f42105fd1370d3cfc6690882c0488d990624b2`
 - Code-signing status: unsigned
 
 ## Verification
 
-- 32 automated application tests passed, including corrupt-download rejection,
-  interrupted-download recovery, known-audio transcription, local cleanup, and
-  offline normal operation.
+- 31 automated application tests passed and 3 optional model-fixture tests were
+  skipped, including coverage for corrupt-download rejection,
+  interrupted-download recovery, combined bundled/Windows certificate trust,
+  startup-error visibility, local cleanup fallback, and offline safeguards.
+- The exact packaged executable downloaded both models into an empty isolated
+  data directory, verified both pinned checksums, and removed the test copies.
 - `LocalFlow.exe --verify-installation` verified both model checksums and
   launched the packaged whisper.cpp and llama.cpp executables.
 - `packaging/test_package.ps1` extracted the ZIP into an isolated install

@@ -144,7 +144,8 @@ development system.
 
 **A model download stopped or failed verification.** Start LocalFlow again. It
 reports and removes interrupted `.part` files. A file with the wrong size or
-checksum is rejected rather than loaded.
+checksum is rejected rather than loaded. HTTPS downloads trust both LocalFlow's
+bundled current public certificate roots and certificates managed by Windows.
 
 **LocalFlow reports a missing model.** Run `LocalFlow.exe --setup-models` with
 an internet connection. If the model directory was manually changed or

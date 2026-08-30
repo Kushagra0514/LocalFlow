@@ -91,6 +91,7 @@ MODEL_SPECS = (
 
 HOTKEY = "f23"
 AUTO_PASTE = False
+CLEANUP = True
 hotkey_modifier_codes = ()
 hotkey_trigger_codes = frozenset()
 pressed_key_codes = set()
@@ -115,7 +116,7 @@ active_native_process = None
 
 
 def load_config(config_path=None):
-    settings = {"HOTKEY": "f23", "AUTO_PASTE": "false"}
+    settings = {"HOTKEY": "f23", "AUTO_PASTE": "false", "CLEANUP": "true"}
     config_path = config_path or APP_DIR / "config.txt"
     if config_path.exists():
         with config_path.open(encoding="utf-8") as config_file:
@@ -153,7 +154,7 @@ def parse_hotkey(hotkey):
 
 
 def configure():
-    global HOTKEY, AUTO_PASTE, hotkey_is_down, app_state
+    global HOTKEY, AUTO_PASTE, CLEANUP, hotkey_is_down, app_state
     global hotkey_modifier_codes, hotkey_trigger_codes
 
     settings = load_config()
@@ -164,6 +165,10 @@ def configure():
     if auto_paste not in {"true", "false"}:
         raise ValueError("AUTO_PASTE must be either true or false.")
     AUTO_PASTE = auto_paste == "true"
+    cleanup = settings["CLEANUP"].lower()
+    if cleanup not in {"true", "false"}:
+        raise ValueError("CLEANUP must be either true or false.")
+    CLEANUP = cleanup == "true"
     pressed_key_codes.clear()
     hotkey_is_down = False
     app_state = ApplicationState.READY
@@ -247,12 +252,14 @@ def ensure_model(spec, model_dir=None):
 
 
 def ensure_models():
-    for spec in MODEL_SPECS:
+    required_specs = MODEL_SPECS if CLEANUP else MODEL_SPECS[:1]
+    for spec in required_specs:
         ensure_model(spec)
 
 
 def validate_native_runtimes():
-    missing = [path for path in (WHISPER_CLI, LLAMA_SERVER) if not path.is_file()]
+    required = (WHISPER_CLI, LLAMA_SERVER) if CLEANUP else (WHISPER_CLI,)
+    missing = [path for path in required if not path.is_file()]
     if missing:
         paths = "\n".join(f"  - {path}" for path in missing)
         raise FileNotFoundError(
@@ -280,10 +287,11 @@ def validate_s1_installation():
 
 
 def verify_native_runtimes():
-    for name, executable in (
+    runtimes = (
         ("whisper.cpp", WHISPER_CLI),
         ("llama.cpp", LLAMA_SERVER),
-    ):
+    )
+    for name, executable in runtimes if CLEANUP else runtimes[:1]:
         try:
             result = subprocess.run(
                 [str(executable), "--version"],
@@ -575,11 +583,15 @@ def process_transcription(audio_data):
             return
 
         print(f"\n[Raw Transcript]: {full_text}")
-        try:
-            final_text = clean_text_locally(full_text)
-        except Exception as error:
-            print(f"Cleanup error: {error}")
-            print("Using the raw transcript instead.")
+        if CLEANUP:
+            try:
+                final_text = clean_text_locally(full_text)
+            except Exception as error:
+                print(f"Cleanup error: {error}")
+                print("Using the raw transcript instead.")
+                final_text = full_text
+        else:
+            print("Cleanup is disabled; using the raw transcript.")
             final_text = full_text
 
         print("-" * 20)
@@ -901,7 +913,7 @@ def run_release_smoke_test(audio_path):
         if not raw_text:
             raise RuntimeError("Release smoke test produced an empty transcript.")
         cleanup_started = time.perf_counter()
-        cleaned_text = clean_text_locally(raw_text)
+        cleaned_text = clean_text_locally(raw_text) if CLEANUP else raw_text
         cleanup_seconds = time.perf_counter() - cleanup_started
     finally:
         stop_sampling.set()
@@ -939,7 +951,8 @@ def main(argv=None):
         validate_native_runtimes()
         ensure_models()
         validate_whisper_installation()
-        validate_s1_installation()
+        if CLEANUP:
+            validate_s1_installation()
         if argv == ["--verify-installation"]:
             verify_native_runtimes()
         elif smoke_test:
@@ -965,10 +978,13 @@ def main(argv=None):
     print(
         f"Using local whisper.cpp base.en Q5 model with {WHISPER_THREADS} CPU threads."
     )
-    print(
-        f"Using local S1-mini by Superwhisper Q4_K_M cleanup with "
-        f"{S1_THREADS} CPU threads."
-    )
+    if CLEANUP:
+        print(
+            f"Using local S1-mini by Superwhisper Q4_K_M cleanup with "
+            f"{S1_THREADS} CPU threads."
+        )
+    else:
+        print("S1-mini cleanup is off; raw Whisper transcripts will be used.")
     print(f"Automatic paste is {'on' if AUTO_PASTE else 'off'}.")
     try:
         keyboard.hook(handle_hotkey_event, suppress=False)

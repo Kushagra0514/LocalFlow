@@ -140,7 +140,12 @@ class StartupErrorTest(unittest.TestCase):
 
 
 class WhisperCppIntegrationTest(unittest.TestCase):
-    @unittest.skipUnless(SAMPLE_PATH.is_file(), "Phase 1 sample is not installed")
+    @unittest.skipUnless(
+        SAMPLE_PATH.is_file()
+        and main.WHISPER_CLI.is_file()
+        and main.WHISPER_MODEL.is_file(),
+        "Phase 1 Whisper fixtures are not installed",
+    )
     def test_transcribes_known_sample(self):
         transcript = main.transcribe_audio(load_sample_audio())
 
@@ -229,6 +234,30 @@ class S1MiniIntegrationTest(unittest.TestCase):
 
         copy.assert_called_once_with(raw_text)
         self.assertIn("Using the raw transcript instead.", output.getvalue())
+
+    def test_disabled_cleanup_copies_raw_transcript_without_calling_s1(self):
+        raw_text = "raw transcript"
+        with (
+            patch.object(main, "CLEANUP", False),
+            patch.object(main, "transcribe_audio", return_value=raw_text),
+            patch.object(main, "clean_text_locally") as cleanup,
+            patch.object(main.pyperclip, "copy") as copy,
+            patch("sys.stdout", new_callable=StringIO) as output,
+        ):
+            main.process_transcription(np.zeros(1, dtype=np.float32))
+
+        cleanup.assert_not_called()
+        copy.assert_called_once_with(raw_text)
+        self.assertIn("Cleanup is disabled", output.getvalue())
+
+    def test_disabled_cleanup_does_not_require_s1_model_download(self):
+        with (
+            patch.object(main, "CLEANUP", False),
+            patch.object(main, "ensure_model") as ensure_model,
+        ):
+            main.ensure_models()
+
+        ensure_model.assert_called_once_with(main.MODEL_SPECS[0])
 
     def test_empty_cleanup_result_is_valid(self):
         with (

@@ -5,6 +5,10 @@
 # Other examples: f12, ctrl, right shift, ctrl+shift+space
 HOTKEY=f23
 
+# When true, clean the raw Whisper transcript with S1-mini. When false, copy
+# and optionally paste the raw Whisper transcript directly.
+CLEANUP=false
+
 # Always copy the result. When true, also send Ctrl+V to whichever application
 # is focused when transcription and cleanup finish.
 AUTO_PASTE=true

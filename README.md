@@ -11,13 +11,13 @@ The supported baseline is Windows 10 or 11 on a 64-bit x86 CPU, using CPU-only
 inference. LocalFlow limits each inference engine to at most four logical CPU
 threads so that it remains usable on lower-powered systems.
 
-Allow roughly 750 MiB of disk space for the extracted application and its
+Allow roughly 900 MiB of disk space for the extracted application and its
 models, plus about 1 GiB of free working memory beyond Windows and other open
 applications. The current measurements were made on a modern Intel Core Ultra
 7 155H. Hardware from the last ten years is a design target, not a promise:
 older CPUs may take substantially longer and still need representative testing.
 
-LocalFlow is English-only in this release. Both the `base.en` transcription
+LocalFlow is English-only in this release. Both the `small.en` transcription
 model and the S1-mini by Superwhisper cleanup configuration target English.
 
 ## Install LocalFlow
@@ -27,7 +27,7 @@ model and the S1-mini by Superwhisper cleanup configuration target English.
 3. Double-click it, complete the installer, and open LocalFlow from the Start
    Menu.
 4. Keep the terminal open while LocalFlow downloads and verifies the two model
-   files on first run. The one-time download is about 519 MiB.
+   files on first run. The one-time download is about 643 MiB.
 5. Wait for the `Ready!` message.
 
 The installer includes LocalFlow, Python, and the pinned whisper.cpp and
@@ -76,6 +76,7 @@ it again. Installer upgrades preserve this file. The default is:
 
 ```text
 HOTKEY=f23
+CLEANUP=true
 AUTO_PASTE=false
 ```
 
@@ -95,6 +96,11 @@ F23. For `ctrl+shift+space`, LocalFlow starts recording when Space is pressed
 while Ctrl and Shift are held. Releasing Space, or releasing a required
 modifier early, stops the recording. Choose a combination that does not
 conflict with shortcuts in your other applications.
+
+With `CLEANUP=true`, LocalFlow processes each raw Whisper transcript through
+S1-mini by Superwhisper. With `CLEANUP=false`, it skips S1-mini and copies the
+raw Whisper transcript directly. When cleanup is disabled, the S1-mini model
+and llama.cpp runtime are not required during normal use.
 
 Every successful result is copied to the clipboard. With the safer default
 `AUTO_PASTE=false`, LocalFlow never sends a paste keystroke. With
@@ -119,8 +125,10 @@ recording began, so leave this disabled if focus can change unexpectedly.
 
 ## Observed performance
 
-Release measurements use the packaged executable, four CPU threads, and the
-fixed 11-second JFK audio sample on an Intel Core Ultra 7 155H:
+These published v0.1.1 measurements used the previous `base.en` Q5 model,
+four CPU threads, and the fixed 11-second JFK audio sample on an Intel Core
+Ultra 7 155H. The new `small.en` Q5 model still needs equivalent release
+measurements:
 
 | Measurement | First measured run | Three repeat runs |
 | --- | ---: | ---: |

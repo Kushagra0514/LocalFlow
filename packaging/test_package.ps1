@@ -26,7 +26,7 @@ $OldDataDirectory = $env:LOCALFLOW_DATA_DIR
 try {
     New-Item -ItemType Directory -Force -Path $InstallRoot, $ModelRoot | Out-Null
     Expand-Archive -LiteralPath $Package -DestinationPath $InstallRoot
-    foreach ($Model in @("ggml-base.en-q5_1.bin", "s1-mini-q4_k_m.gguf")) {
+    foreach ($Model in @("ggml-small.en-q5_1.bin", "s1-mini-q4_k_m.gguf")) {
         Copy-Item -LiteralPath (Join-Path $ModelSeedDirectory $Model) -Destination $ModelRoot
     }
 

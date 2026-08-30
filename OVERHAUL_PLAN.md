@@ -81,6 +81,7 @@ main.py                         Thin CLI/bootstrap only
 config.default.ini              Shipped defaults, never a live user config
 localflow/
   __init__.py                   Package metadata
+  types.py                      Shared immutable jobs and results
   application.py                Lifecycle, state, worker, shutdown
   config.py                     INI loading, migration, typed validation
   recording.py                  Hotkeys, microphone, bounded audio capture
@@ -97,6 +98,7 @@ tests/
   test_recording.py
   test_whisper.py
   test_pipeline.py
+  test_output.py
   test_cloud.py
   test_commands.py
   test_application.py
@@ -275,26 +277,26 @@ provider-specific environment variables.
 
 ### Steps
 
-- [ ] **2.1** Add only the small enums and immutable data objects required to
+- [x] **2.1** Add only the small enums and immutable data objects required to
   represent application state, job purpose, recordings, and results.
-- [ ] **2.2** Move model download, checksum verification, WAV conversion,
+- [x] **2.2** Move model download, checksum verification, WAV conversion,
   whisper.cpp validation, transcription, and cancellation into
   `localflow/whisper.py` without changing behavior.
-- [ ] **2.3** Move hotkey parsing, key-repeat handling, microphone ownership,
+- [x] **2.3** Move hotkey parsing, key-repeat handling, microphone ownership,
   duration limits, and audio buffering into `localflow/recording.py`.
-- [ ] **2.4** Replace recording-related module globals with one recorder object
+- [x] **2.4** Replace recording-related module globals with one recorder object
   whose stream, timer, buffer, and active job purpose are owned together.
-- [ ] **2.5** Move clipboard copy and opt-in paste behavior into
+- [x] **2.5** Move clipboard copy and opt-in paste behavior into
   `localflow/output.py`, including the final shutdown guard.
-- [ ] **2.6** Create `localflow/pipeline.py` with an explicit mapping from job
+- [x] **2.6** Create `localflow/pipeline.py` with an explicit mapping from job
   purpose to transcript handler. Initially register only raw dictation.
-- [ ] **2.7** Create `localflow/application.py` to own the explicit state machine,
+- [x] **2.7** Create `localflow/application.py` to own the explicit state machine,
   lock, single worker, active native process, startup, and shutdown.
-- [ ] **2.8** Reduce `main.py` to argument parsing, component construction, startup,
+- [x] **2.8** Reduce `main.py` to argument parsing, component construction, startup,
   and exit-code handling.
-- [ ] **2.9** Split the monolithic test file by responsibility while moving each
+- [x] **2.9** Split the monolithic test file by responsibility while moving each
   implementation. Avoid permanent compatibility shims back through `main.py`.
-- [ ] **2.10** Run the complete unit suite after every module extraction, then run
+- [x] **2.10** Run the complete unit suite after every module extraction, then run
   the real fixed-audio Whisper smoke test.
 
 ### Exit criteria
@@ -304,6 +306,25 @@ provider-specific environment variables.
   patching globals in `main`.
 - Recording and Whisper have no imports from cloud or command modules.
 - Existing local behavior and shutdown guarantees remain intact.
+
+### Phase 2 verification result (2026-08-30)
+
+- `main.py` fell from 827 lines to 93 lines and now contains only path/config
+  wiring, component construction, CLI dispatch, and exit-code handling.
+- Responsibility-specific suites passed after extraction. The final complete
+  suite discovered 44 tests: 43 passed and 1 source-tree real-audio fixture
+  test skipped because that optional fixture is unavailable.
+- Tests replace the transcriber, output publisher, and pipeline handlers by
+  constructor injection; no compatibility business-logic shims remain in
+  `main.py`.
+- The final packaged fixed-audio smoke test produced the expected transcript in
+  1.228 seconds with a 264.0 MiB peak process-tree working set.
+- The final installer passed silent install, config-preserving upgrade,
+  obsolete-file cleanup, launch, uninstall, and test-directory cleanup.
+- Rebuilt ZIP: 26,276,208 bytes (25.06 MiB), SHA-256
+  `1b71dcc7211592e8ac12488313ce24483f4bbb29a1d889c65e116f7206b3f60f`.
+- Rebuilt installer: 18,840,172 bytes (17.97 MiB), SHA-256
+  `a3f0194796d7b44d21c690a39ddca14552d8634add5a5463e058b9a4bcb28c85`.
 
 ---
 

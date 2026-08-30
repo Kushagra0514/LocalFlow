@@ -223,6 +223,7 @@ class S1MiniIntegrationTest(unittest.TestCase):
     def test_cleanup_failure_copies_raw_transcript(self):
         raw_text = "raw transcript"
         with (
+            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value=raw_text),
             patch.object(main, "clean_text_locally", side_effect=RuntimeError("test failure")),
             patch.object(main.pyperclip, "copy") as copy,
@@ -261,6 +262,7 @@ class S1MiniIntegrationTest(unittest.TestCase):
 
     def test_empty_cleanup_result_is_valid(self):
         with (
+            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value="um uh"),
             patch.object(main, "clean_text_locally", return_value=""),
             patch.object(main.pyperclip, "copy") as copy,
@@ -391,6 +393,7 @@ class HotkeyAndOutputTest(unittest.TestCase):
 
     def test_copy_without_automatic_paste(self):
         with (
+            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value="raw"),
             patch.object(main, "clean_text_locally", return_value="Clean."),
             patch.object(main.pyperclip, "copy") as copy,
@@ -405,6 +408,7 @@ class HotkeyAndOutputTest(unittest.TestCase):
     def test_copy_and_automatic_paste_when_enabled(self):
         main.AUTO_PASTE = True
         with (
+            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value="raw"),
             patch.object(main, "clean_text_locally", return_value="Clean."),
             patch.object(main.pyperclip, "copy") as copy,
@@ -505,6 +509,7 @@ class PipelineReliabilityTest(unittest.TestCase):
     def test_clipboard_failure_returns_to_ready(self):
         main.app_state = main.ApplicationState.PROCESSING
         with (
+            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value="raw"),
             patch.object(main, "clean_text_locally", return_value="Clean."),
             patch.object(main.pyperclip, "copy", side_effect=RuntimeError("clipboard busy")),
@@ -524,6 +529,7 @@ class PipelineReliabilityTest(unittest.TestCase):
             return "Clean."
 
         with (
+            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value="raw"),
             patch.object(main, "clean_text_locally", side_effect=clean_then_shutdown),
             patch.object(main.pyperclip, "copy") as copy,

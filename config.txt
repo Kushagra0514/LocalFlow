@@ -11,4 +11,4 @@ CLEANUP=false
 
 # Always copy the result. When true, also send Ctrl+V to whichever application
 # is focused when transcription and cleanup finish.
-AUTO_PASTE=true
+AUTO_PASTE=false

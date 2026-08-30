@@ -91,7 +91,7 @@ MODEL_SPECS = (
 
 HOTKEY = "f23"
 AUTO_PASTE = False
-CLEANUP = True
+CLEANUP = False
 hotkey_modifier_codes = ()
 hotkey_trigger_codes = frozenset()
 pressed_key_codes = set()
@@ -116,7 +116,7 @@ active_native_process = None
 
 
 def load_config(config_path=None):
-    settings = {"HOTKEY": "f23", "AUTO_PASTE": "false", "CLEANUP": "true"}
+    settings = {"HOTKEY": "f23", "AUTO_PASTE": "false", "CLEANUP": "false"}
     config_path = config_path or APP_DIR / "config.txt"
     if config_path.exists():
         with config_path.open(encoding="utf-8") as config_file:

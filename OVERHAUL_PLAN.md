@@ -167,19 +167,19 @@ provider-specific environment variables.
 
 ### Steps
 
-- [ ] **0.1** Review every currently modified file and separate intentional
+- [x] **0.1** Review every currently modified file and separate intentional
   user changes from obsolete `small.en` and local-cleanup work. Do not reset or
   discard the dirty worktree.
-- [ ] **0.2** Create an overhaul branch and make a recoverable checkpoint before
+- [x] **0.2** Create an overhaul branch and make a recoverable checkpoint before
   deleting or moving implementation files.
-- [ ] **0.3** Make all current source, test, package, README, and notice references
+- [x] **0.3** Make all current source, test, package, README, and notice references
   agree on English `base.en` Q5 and cleanup disabled by default.
 - [x] **0.4** Run the existing unit suite and record its exact result here.
   Baseline on 2026-08-30: 36 tests discovered, 33 passed, and 3 native-fixture
   integration tests skipped; runtime 0.687 seconds.
-- [ ] **0.5** Record the current ZIP/installer size and the most recent local
+- [x] **0.5** Record the current ZIP/installer size and the most recent local
   transcription memory and latency measurements for before/after comparison.
-- [ ] **0.6** Add a release-consistency check for the selected Whisper filename,
+- [x] **0.6** Add a release-consistency check for the selected Whisper filename,
   cleanup default, and application version so these values cannot silently
   drift across source, packaging, and tests again.
 
@@ -189,6 +189,31 @@ provider-specific environment variables.
 - All active files agree on `base.en` and current defaults.
 - The local transcription baseline passes before architectural changes begin.
 - Release metadata drift is caught automatically.
+
+### Results
+
+- Reviewed the seven checkpointed files. The cleanup toggle and its tests were
+  retained; stale `small.en` edits were reconciled to `base.en`; no user change
+  was reset or discarded.
+- Created branch `codex/v0.2-overhaul` and checkpoint commit `cfe04f9` before
+  reconciliation.
+- Pre-reconciliation baseline on 2026-08-30: 36 tests discovered, 33 passed,
+  and 3 native-fixture integration tests skipped.
+- Post-reconciliation suite: 39 tests discovered, 36 passed, and 3
+  native-fixture integration tests skipped; final runtime 2.265 seconds. The three
+  added tests enforce model, default, and version consistency.
+- Existing extracted package: 105,435,880 bytes. Existing ZIP: 43,670,218
+  bytes, SHA-256
+  `5c9629c059b4080ecc1716249c3fab4216b4fa6c81c9ee34682a632979c401dd`.
+  Existing installer: 27,943,378 bytes, SHA-256
+  `1b2c74395127c9ef2767465948f42105fd1370d3cfc6690882c0488d990624b2`.
+- Fresh cleanup-disabled packaged smoke test on 2026-08-30: Whisper 5.120
+  seconds, complete pipeline 5.121 seconds, and 265.2 MiB peak process-tree
+  working set. The fixed sample produced the expected JFK transcript.
+- Historical published v0.1.1 cleanup-enabled measurements remain in
+  `benchmarks/PHASE8_RESULTS.md`: 3.05–3.35 second repeat pipeline latency and
+  939.9 MiB maximum observed process-tree working set. They are retained only
+  as a before-overhaul comparison.
 
 ---
 

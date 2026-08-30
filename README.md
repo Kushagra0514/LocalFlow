@@ -1,9 +1,10 @@
 # LocalFlow
 
 LocalFlow is a fully local, CPU-first push-to-talk dictation tool for 64-bit
-Windows. It transcribes English with whisper.cpp and cleans the transcript with
-S1-mini by Superwhisper. After the two model files have been downloaded,
-dictation needs no cloud service, account, API key, or dedicated GPU.
+Windows. It transcribes English with whisper.cpp and can optionally clean the
+transcript with S1-mini by Superwhisper. Cleanup is disabled by default, so
+normal dictation requires only the Whisper model and no cloud service, account,
+API key, or dedicated GPU.
 
 ## Supported hardware
 
@@ -11,13 +12,13 @@ The supported baseline is Windows 10 or 11 on a 64-bit x86 CPU, using CPU-only
 inference. LocalFlow limits each inference engine to at most four logical CPU
 threads so that it remains usable on lower-powered systems.
 
-Allow roughly 900 MiB of disk space for the extracted application and its
-models, plus about 1 GiB of free working memory beyond Windows and other open
-applications. The current measurements were made on a modern Intel Core Ultra
+Allow roughly 160 MiB of disk space for the extracted application and required
+Whisper model. Enabling the current optional S1-mini cleanup adds about 462 MiB
+of model data. The current measurements were made on a modern Intel Core Ultra
 7 155H. Hardware from the last ten years is a design target, not a promise:
 older CPUs may take substantially longer and still need representative testing.
 
-LocalFlow is English-only in this release. Both the `small.en` transcription
+LocalFlow is English-only in this release. Both the `base.en` transcription
 model and the S1-mini by Superwhisper cleanup configuration target English.
 
 ## Install LocalFlow
@@ -26,8 +27,9 @@ model and the S1-mini by Superwhisper cleanup configuration target English.
 2. Download `LocalFlow-Setup.exe` from the newest release.
 3. Double-click it, complete the installer, and open LocalFlow from the Start
    Menu.
-4. Keep the terminal open while LocalFlow downloads and verifies the two model
-   files on first run. The one-time download is about 643 MiB.
+4. Keep the terminal open while LocalFlow downloads and verifies the Whisper
+   model on first run. The default one-time download is about 57 MiB. If local
+   cleanup is enabled, LocalFlow also downloads the roughly 462 MiB S1 model.
 5. Wait for the `Ready!` message.
 
 The installer includes LocalFlow, Python, and the pinned whisper.cpp and
@@ -39,7 +41,7 @@ The current installer is not code-signed, so Windows may identify its publisher
 as unknown. Download it only from the official LocalFlow release page and
 compare its SHA-256 with the value in that release's notes before running it.
 
-Models are stored outside the application folder in
+Model files are stored outside the application folder in
 `%LOCALAPPDATA%\LocalFlow\models`. Downloads use a `.part` file and are checked
 against pinned sizes and SHA-256 digests before installation. If a download is
 interrupted, start LocalFlow again; it discards the partial file and restarts
@@ -59,8 +61,8 @@ without starting the hotkey listener:
 1. Put the cursor where you eventually want the text.
 2. Hold the configured hotkey and wait for `Recording started`.
 3. Speak for at least 0.3 seconds, then release the hotkey.
-4. Wait while LocalFlow transcribes and cleans the text. Only one recording can
-   be processed at a time.
+4. Wait while LocalFlow transcribes and, when enabled, cleans the text. Only one
+   recording can be processed at a time.
 5. Paste from the clipboard with `Ctrl+V`, unless automatic paste is enabled.
 
 A recording is limited to 60 seconds. If S1-mini cleanup fails or is
@@ -76,7 +78,7 @@ it again. Installer upgrades preserve this file. The default is:
 
 ```text
 HOTKEY=f23
-CLEANUP=true
+CLEANUP=false
 AUTO_PASTE=false
 ```
 
@@ -111,7 +113,8 @@ recording began, so leave this disabled if focus can change unexpectedly.
 ## Privacy and network behavior
 
 - The only required external network activity is the first-run download of the
-  two pinned models from their official Hugging Face repositories.
+  pinned Whisper model from its official Hugging Face repository. Enabling the
+  current local cleanup also downloads the pinned S1 model once.
 - Once valid models are present, normal transcription and cleanup make no
   external network request. S1-mini communicates with a temporary llama.cpp
   server bound only to `127.0.0.1` on the same computer.
@@ -125,10 +128,9 @@ recording began, so leave this disabled if focus can change unexpectedly.
 
 ## Observed performance
 
-These published v0.1.1 measurements used the previous `base.en` Q5 model,
-four CPU threads, and the fixed 11-second JFK audio sample on an Intel Core
-Ultra 7 155H. The new `small.en` Q5 model still needs equivalent release
-measurements:
+These published v0.1.1 measurements used the `base.en` Q5 model, four CPU
+threads, and the fixed 11-second JFK audio sample on an Intel Core Ultra 7
+155H. They measured the optional local S1 cleanup path:
 
 | Measurement | First measured run | Three repeat runs |
 | --- | ---: | ---: |

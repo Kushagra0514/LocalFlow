@@ -6,6 +6,7 @@ from pathlib import Path
 
 import main
 from localflow import APP_VERSION
+from localflow.cloud import PROVIDERS
 from localflow.config import load_config
 from localflow.whisper import WHISPER_MODEL_SPEC
 
@@ -41,6 +42,7 @@ class ReleaseConsistencyTest(unittest.TestCase):
         self.assertFalse(defaults.auto_paste)
         self.assertFalse(defaults.cleanup_enabled)
         self.assertFalse(defaults.commands_enabled)
+        self.assertEqual(defaults.ai.model, PROVIDERS[defaults.ai.provider].default_model)
         self.assertIn("auto_paste = false", readme)
         self.assertIn("[cleanup]\nenabled = false", readme)
 
@@ -87,6 +89,20 @@ class ReleaseConsistencyTest(unittest.TestCase):
             "def process_transcription",
         ):
             self.assertNotIn(forbidden, source)
+
+    def test_provider_transport_details_stay_in_cloud_module(self):
+        other_modules = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (ROOT / "localflow").glob("*.py")
+            if path.name != "cloud.py"
+        )
+        for provider_detail in (
+            "api.groq.com",
+            "GROQ_API_KEY",
+            '"Authorization"',
+            "tool_calls",
+        ):
+            self.assertNotIn(provider_detail, other_modules)
 
 
 if __name__ == "__main__":

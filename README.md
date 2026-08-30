@@ -95,7 +95,7 @@ enabled = false
 
 [ai]
 provider = groq
-model = llama-3.1-8b-instant
+model = openai/gpt-oss-20b
 timeout_seconds = 15
 ```
 
@@ -236,3 +236,18 @@ uv run --frozen python -m unittest discover -s tests -v
 `build_installer.ps1` requires [Inno Setup](https://jrsoftware.org/isdl.php) on
 the development computer. It first creates the complete application bundle and
 then writes the single user-facing installer to `dist\LocalFlow-Setup.exe`.
+
+### Adding an OpenAI-compatible provider
+
+Cloud transport is isolated in `localflow/cloud.py`. To support another trusted
+OpenAI-compatible service, add one `Provider` entry containing its fixed base
+URL, API-key environment-variable name, default model, and required headers.
+The configuration validator reads that registry, so recording, Whisper,
+output, tools, and application state do not change.
+
+Run the reusable provider contract tests against a local fake server before
+enabling the provider. They must prove the service accepts the normalized
+request and returns normalized text or one tool call. Never add a user-defined
+base URL. If a future provider cannot satisfy this Chat Completions contract,
+give it a small separate adapter behind the same `CompletionRequest` and
+`CompletionResponse` boundary.

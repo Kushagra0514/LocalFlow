@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from io import StringIO
 from pathlib import Path
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 
 import main
+from localflow import cloud
 from localflow.application import Application
 from localflow.pipeline import Pipeline, raw_dictation
 from localflow.types import ApplicationState, JobPurpose, Recording
@@ -149,6 +151,28 @@ class ApplicationTest(unittest.TestCase):
 
 
 class BootstrapTest(unittest.TestCase):
+    def test_disabled_cloud_features_do_not_create_client_or_network_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory)
+            with (
+                patch.object(
+                    main,
+                    "application_paths",
+                    return_value=(
+                        Path(main.__file__).resolve().parent,
+                        Path("runtime"),
+                        data_dir,
+                    ),
+                ),
+                patch.object(cloud, "create_client") as create_client,
+                patch.object(cloud.urllib.request, "urlopen") as urlopen,
+            ):
+                _, _, config = main.build_application()
+        self.assertFalse(config.cleanup_enabled)
+        self.assertFalse(config.commands_enabled)
+        create_client.assert_not_called()
+        urlopen.assert_not_called()
+
     def test_frozen_double_click_keeps_startup_error_visible(self):
         with (
             patch.object(main.sys, "frozen", True, create=True),

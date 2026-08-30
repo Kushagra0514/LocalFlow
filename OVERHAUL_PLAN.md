@@ -151,7 +151,7 @@ enabled = false
 
 [ai]
 provider = groq
-model = llama-3.1-8b-instant
+model = openai/gpt-oss-20b
 timeout_seconds = 15
 ```
 
@@ -392,28 +392,28 @@ provider-specific environment variables.
 
 ### Steps
 
-- [ ] **4.1** Define the smallest internal request and response data needed for
+- [x] **4.1** Define the smallest internal request and response data needed for
   text completion and a single optional tool call.
-- [ ] **4.2** Keep prompts out of the transport layer; cleanup and command
+- [x] **4.2** Keep prompts out of the transport layer; cleanup and command
   handlers construct their own messages.
-- [ ] **4.3** Implement one OpenAI-compatible HTTPS request path using the
+- [x] **4.3** Implement one OpenAI-compatible HTTPS request path using the
   existing `urllib`, `json`, `certifi`, and Windows certificate context.
-- [ ] **4.4** Add an explicit provider registry containing Groq’s trusted base
+- [x] **4.4** Add an explicit provider registry containing Groq’s trusted base
   URL, API-key environment-variable name, supported model default, and any
   required headers. Do not accept a user-supplied base URL.
-- [ ] **4.5** Normalize successful text and tool-call responses before returning
+- [x] **4.5** Normalize successful text and tool-call responses before returning
   them to a feature. No feature may parse provider-specific JSON.
-- [ ] **4.6** Normalize timeout, TLS/DNS, authentication, permission, rate-limit,
+- [x] **4.6** Normalize timeout, TLS/DNS, authentication, permission, rate-limit,
   malformed-response, oversized-response, and server failures into safe
   application errors.
-- [ ] **4.7** Use a short bounded timeout, bounded request/response sizes, no
+- [x] **4.7** Use a short bounded timeout, bounded request/response sizes, no
   streaming, and no automatic retries in the first implementation.
-- [ ] **4.8** Never put keys, authorization headers, transcripts, or raw provider
+- [x] **4.8** Never put keys, authorization headers, transcripts, or raw provider
   response bodies into exceptions or logs.
-- [ ] **4.9** Add reusable provider contract tests using mocks and a local fake
+- [x] **4.9** Add reusable provider contract tests using mocks and a local fake
   HTTP server. Standard tests must never require a real key, network, or billable
   request.
-- [ ] **4.10** Document how a future OpenAI-compatible provider is added through
+- [x] **4.10** Document how a future OpenAI-compatible provider is added through
   provider data and the same contract tests. Add a separate adapter only when a
   provider’s native API cannot satisfy the common contract.
 
@@ -425,6 +425,32 @@ provider-specific environment variables.
 - Disabled features do not read credentials or construct a network request.
 - Adding another compatible provider does not touch recording, Whisper,
   output, tools, or application state.
+
+### Phase 4 verification result (2026-08-30)
+
+- The complete unit suite discovered 73 tests: 72 passed and 1 source-tree
+  real-audio fixture test skipped because that optional fixture is unavailable.
+- Provider contract tests normalized plain text and exactly one parsed tool
+  call through a loopback fake server. Mocked tests covered credentials,
+  authentication, permission, rate limiting, request size, timeout, TLS, DNS,
+  connection, server, oversized response, and malformed response failures.
+- Tests assert one network attempt with no retries, bounded 64 KiB requests and
+  256 KiB responses, non-streaming requests, and disabled parallel tool calls.
+- Error tests include private marker values in keys, transcripts, HTTP details,
+  and response bodies and confirm none appear in normalized exceptions.
+- With cleanup and commands disabled, application construction neither creates
+  a cloud client nor opens a network connection. No real credential, external
+  provider request, or billable API call was used during verification.
+- Groq's former `llama-3.1-8b-instant` default was retired for free/developer
+  users on 2026-08-16, so new configurations use Groq's documented replacement,
+  `openai/gpt-oss-20b`. Existing user INIs are intentionally not overwritten.
+- The packaged fixed-audio smoke test produced the expected local transcript in
+  2.169 seconds with a 264.0 MiB peak process-tree working set. Silent install,
+  configuration-preserving upgrade, launch, and uninstall also passed.
+- Rebuilt ZIP: 26,316,169 bytes (25.10 MiB), SHA-256
+  `69822d109c7682da90a9362884a6ec879b4ac33b5182b7e1cc96da1f6d76e102`.
+- Rebuilt installer: 18,873,282 bytes (18.00 MiB), SHA-256
+  `d3a7d31baba88e68c514eb16d0d080a7ac7179423209383725fd13bd71033137`.
 
 ---
 

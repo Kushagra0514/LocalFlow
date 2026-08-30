@@ -4,10 +4,10 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from localflow.cloud import PROVIDERS
 from localflow.recording import parse_hotkey
 
 LIVE_CONFIG_FILENAME = "config.ini"
-ALLOWED_PROVIDERS = frozenset({"groq"})
 SCHEMA = {
     "hotkeys": frozenset({"dictation", "command"}),
     "output": frozenset({"auto_paste"}),
@@ -99,8 +99,8 @@ def validate_config(parser: configparser.ConfigParser, path: Path) -> AppConfig:
         )
 
     provider = parser["ai"]["provider"].strip().lower()
-    if provider not in ALLOWED_PROVIDERS:
-        allowed = ", ".join(sorted(ALLOWED_PROVIDERS))
+    if provider not in PROVIDERS:
+        allowed = ", ".join(sorted(PROVIDERS))
         raise ValueError(f"Unknown [ai] provider {provider!r} in {path}; use: {allowed}.")
     model = parser["ai"]["model"].strip()
     if not model:

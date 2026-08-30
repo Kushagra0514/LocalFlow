@@ -221,28 +221,28 @@ provider-specific environment variables.
 
 ### Steps
 
-- [ ] **1.1** Remove S1 constants, prompts, model specifications, token limits,
+- [x] **1.1** Remove S1 constants, prompts, model specifications, token limits,
   health checks, local HTTP calls, and cleanup functions from the application.
-- [ ] **1.2** Remove llama.cpp validation, process startup, shutdown, and smoke
+- [x] **1.2** Remove llama.cpp validation, process startup, shutdown, and smoke
   test branches while preserving whisper.cpp process cancellation.
-- [ ] **1.3** Make the interim dictation pipeline always publish raw Whisper
+- [x] **1.3** Make the interim dictation pipeline always publish raw Whisper
   text; do not introduce cloud behavior in this phase.
-- [ ] **1.4** Remove S1/llama-specific tests and retain tests proving raw
+- [x] **1.4** Remove S1/llama-specific tests and retain tests proving raw
   transcription fallback, recording bounds, one-job-at-a-time behavior,
   clipboard handling, and shutdown safety.
-- [ ] **1.5** Remove the llama.cpp archive download, extraction, DLL list,
+- [x] **1.5** Remove the llama.cpp archive download, extraction, DLL list,
   runtime folder, and manifest entries from `packaging/build_windows.ps1`.
-- [ ] **1.6** Change the package test to seed and verify only the pinned
+- [x] **1.6** Change the package test to seed and verify only the pinned
   `ggml-base.en-q5_1.bin` model.
-- [ ] **1.7** Remove S1-mini and llama.cpp from current third-party notices and
+- [x] **1.7** Remove S1-mini and llama.cpp from current third-party notices and
   stop packaging their license files.
-- [ ] **1.8** Add precise installer-upgrade deletion entries for obsolete files
+- [x] **1.8** Add precise installer-upgrade deletion entries for obsolete files
   under the installed `runtime\llama` and obsolete packaged licenses. Never
   delete the entire installation or user-data directory.
-- [ ] **1.9** Leave an existing
+- [x] **1.9** Leave an existing
   `%LOCALAPPDATA%\LocalFlow\models\s1-mini-q4_k_m.gguf` untouched and document
   its exact optional manual-removal path.
-- [ ] **1.10** Rebuild and verify that no llama executable, S1 model, `.gguf`, or
+- [x] **1.10** Rebuild and verify that no llama executable, S1 model, `.gguf`, or
   obsolete license remains inside the ZIP or installer.
 
 ### Exit criteria
@@ -252,6 +252,22 @@ provider-specific environment variables.
   runtime.
 - Local dictation works offline after the Whisper model is present.
 - Old user model data is not silently deleted.
+
+### Phase 1 verification result (2026-08-30)
+
+- Unit suite: 34 tests discovered, 32 passed, and 2 real-audio source-tree
+  fixture tests skipped. The packaged fixed-audio smoke test passed separately.
+- ZIP smoke test: the fixed sample produced the expected raw transcript with no
+  network-dependent cleanup step; peak process-tree working set was 263.6 MiB.
+- Four rebuilt-package measurements: Whisper/raw pipeline 2.61–3.72 seconds;
+  peak process-tree working set 264.0–265.2 MiB.
+- Package and installer tests rejected `.gguf`, llama, and S1 files. The
+  installer upgrade test also removed a simulated obsolete `runtime\llama`
+  directory and obsolete licenses while preserving the user's `config.txt`.
+- Rebuilt ZIP: 26,267,007 bytes (25.05 MiB), SHA-256
+  `d13d40b3043e2dc6201e574aa8910bdcedfaf498cb415f2ec2401e0d0d867911`.
+- Rebuilt installer: 18,824,204 bytes (17.95 MiB), SHA-256
+  `a1cad7b808d3dab6b2025f7002a7e141411c7ae9f161ab22d41fad3818a172c8`.
 
 ---
 

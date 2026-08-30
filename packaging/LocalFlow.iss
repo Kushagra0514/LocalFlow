@@ -33,6 +33,12 @@ VersionInfoProductVersion={#AppVersion}
 Source: "..\dist\LocalFlow\*"; Excludes: "config.txt"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\LocalFlow\config.txt"; DestDir: "{app}"; Flags: onlyifdoesntexist
 
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\runtime\llama"
+Type: files; Name: "{app}\licenses\LLAMA_CPP_LICENSE.txt"
+Type: files; Name: "{app}\licenses\S1_MINI_LICENSE.txt"
+Type: files; Name: "{app}\licenses\S1_MINI_NOTICE.txt"
+
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 

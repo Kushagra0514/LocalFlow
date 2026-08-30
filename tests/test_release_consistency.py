@@ -27,20 +27,34 @@ class ReleaseConsistencyTest(unittest.TestCase):
         self.assertNotIn("ggml-small.en-q5_1.bin", package_test + notices)
         self.assertNotIn("`small.en`", readme)
 
-    def test_cleanup_defaults_are_consistent(self):
+    def test_raw_dictation_defaults_are_consistent(self):
         with tempfile.TemporaryDirectory() as directory:
             missing_config = Path(directory) / "missing-config.txt"
             defaults = main.load_config(missing_config)
         configured = main.load_config(ROOT / "config.txt")
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertFalse(main.CLEANUP)
-        self.assertEqual(defaults["CLEANUP"], "false")
-        self.assertEqual(configured["CLEANUP"], "false")
-        self.assertIn("CLEANUP=false", readme)
+        self.assertFalse(hasattr(main, "CLEANUP"))
+        self.assertNotIn("CLEANUP", defaults)
+        self.assertNotIn("CLEANUP", configured)
+        self.assertNotIn("CLEANUP=", readme)
         self.assertEqual(defaults["AUTO_PASTE"], "false")
         self.assertEqual(configured["AUTO_PASTE"], "false")
         self.assertIn("AUTO_PASTE=false", readme)
+
+    def test_active_release_has_no_local_cleanup_stack(self):
+        active_release = "\n".join(
+            (ROOT / path).read_text(encoding="utf-8-sig")
+            for path in (
+                "main.py",
+                "config.txt",
+                "packaging/build_windows.ps1",
+                "THIRD_PARTY_NOTICES.md",
+            )
+        ).lower()
+
+        for obsolete in ("s1-mini", "llama.cpp", "llama-server", ".gguf"):
+            self.assertNotIn(obsolete, active_release)
 
     def test_application_version_is_consistent(self):
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))

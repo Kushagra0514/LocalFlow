@@ -1,7 +1,6 @@
 import hashlib
 import os
 import tempfile
-import socket
 import unittest
 import wave
 from io import BytesIO
@@ -20,7 +19,6 @@ import main
 
 
 SAMPLE_PATH = Path(__file__).parents[1] / ".local" / "phase1" / "samples" / "jfk.wav"
-S1_SAMPLE = "so um i need to like send the the report by uh friday no wait make that thursday"
 
 
 def load_sample_audio():
@@ -169,14 +167,14 @@ class WhisperCppIntegrationTest(unittest.TestCase):
     def test_silence_skips_transcription(self):
         self.assertEqual(main.transcribe_audio(np.zeros(16_000, dtype=np.float32)), "")
 
-    def test_no_speech_does_not_run_cleanup(self):
+    def test_no_speech_does_not_copy(self):
         with (
             patch.object(main, "transcribe_audio", return_value=""),
-            patch.object(main, "clean_text_locally") as cleanup,
+            patch.object(main.pyperclip, "copy") as copy,
             patch("sys.stdout", new_callable=StringIO),
         ):
             main.process_transcription(np.zeros(16_000, dtype=np.float32))
-        cleanup.assert_not_called()
+        copy.assert_not_called()
 
     def test_transcription_failure_returns_to_ready_state(self):
         main.app_state = main.ApplicationState.PROCESSING
@@ -191,119 +189,41 @@ class WhisperCppIntegrationTest(unittest.TestCase):
         self.assertIs(main.app_state, main.ApplicationState.READY)
 
 
-class S1MiniIntegrationTest(unittest.TestCase):
-    @unittest.skipUnless(
-        main.LLAMA_SERVER.is_file() and main.S1_MODEL.is_file(),
-        "Phase 1 S1-mini runtime is not installed",
-    )
-    def test_cleans_known_transcript_locally(self):
-        cleaned = main.clean_text_locally(S1_SAMPLE)
-
-        self.assertEqual(cleaned, "So I need to send the report by Thursday.")
-        self.assertIsNone(main.active_native_process)
-
-    def test_missing_runtime_has_clear_error(self):
-        missing = Path(__file__).with_name("missing-llama-server.exe")
-        with patch.object(main, "LLAMA_SERVER", missing):
-            with self.assertRaisesRegex(FileNotFoundError, "installation is incomplete"):
-                main.clean_text_locally("hello")
-
-    def test_missing_model_has_clear_error(self):
-        missing = Path(__file__).with_name("missing-s1-model.gguf")
-        with patch.object(main, "S1_MODEL", missing):
-            with self.assertRaisesRegex(
-                FileNotFoundError, "(?s)installation is incomplete.*missing-s1-model"
-            ):
-                main.clean_text_locally("hello")
-
-    def test_output_limit_uses_recommended_approximation(self):
-        raw_text = "a" * 400
-        self.assertEqual(main.cleanup_token_limit(raw_text), 162)
-
-    def test_cleanup_failure_copies_raw_transcript(self):
+class RawTranscriptPipelineTest(unittest.TestCase):
+    def test_copies_raw_transcript(self):
         raw_text = "raw transcript"
         with (
-            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value=raw_text),
-            patch.object(main, "clean_text_locally", side_effect=RuntimeError("test failure")),
             patch.object(main.pyperclip, "copy") as copy,
-            patch.object(main.keyboard, "send"),
-            patch.object(main.time, "sleep"),
-            patch("sys.stdout", new_callable=StringIO) as output,
+            patch("sys.stdout", new_callable=StringIO),
         ):
             main.process_transcription(np.zeros(1, dtype=np.float32))
 
         copy.assert_called_once_with(raw_text)
-        self.assertIn("Using the raw transcript instead.", output.getvalue())
 
-    def test_disabled_cleanup_copies_raw_transcript_without_calling_s1(self):
-        raw_text = "raw transcript"
-        with (
-            patch.object(main, "CLEANUP", False),
-            patch.object(main, "transcribe_audio", return_value=raw_text),
-            patch.object(main, "clean_text_locally") as cleanup,
-            patch.object(main.pyperclip, "copy") as copy,
-            patch("sys.stdout", new_callable=StringIO) as output,
-        ):
-            main.process_transcription(np.zeros(1, dtype=np.float32))
-
-        cleanup.assert_not_called()
-        copy.assert_called_once_with(raw_text)
-        self.assertIn("Cleanup is disabled", output.getvalue())
-
-    def test_disabled_cleanup_does_not_require_s1_model_download(self):
-        with (
-            patch.object(main, "CLEANUP", False),
-            patch.object(main, "ensure_model") as ensure_model,
-        ):
+    def test_only_whisper_model_is_required(self):
+        with patch.object(main, "ensure_model") as ensure_model:
             main.ensure_models()
 
         ensure_model.assert_called_once_with(main.MODEL_SPECS[0])
-
-    def test_empty_cleanup_result_is_valid(self):
-        with (
-            patch.object(main, "CLEANUP", True),
-            patch.object(main, "transcribe_audio", return_value="um uh"),
-            patch.object(main, "clean_text_locally", return_value=""),
-            patch.object(main.pyperclip, "copy") as copy,
-            patch.object(main.keyboard, "send"),
-            patch.object(main.time, "sleep"),
-            patch("sys.stdout", new_callable=StringIO) as output,
-        ):
-            main.process_transcription(np.zeros(1, dtype=np.float32))
-
-        copy.assert_called_once_with("")
-        self.assertNotIn("Cleanup error", output.getvalue())
 
 
 class OfflineOperationTest(unittest.TestCase):
     @unittest.skipUnless(
         SAMPLE_PATH.is_file()
         and main.WHISPER_CLI.is_file()
-        and main.WHISPER_MODEL.is_file()
-        and main.LLAMA_SERVER.is_file()
-        and main.S1_MODEL.is_file(),
-        "Local Phase 1 inference artifacts are not installed",
+        and main.WHISPER_MODEL.is_file(),
+        "Local Whisper fixtures are not installed",
     )
-    def test_full_pipeline_rejects_non_loopback_connections(self):
-        main.app_state = main.ApplicationState.READY
-        real_create_connection = socket.create_connection
-        connections = []
-
-        def loopback_only(address, *args, **kwargs):
-            host = str(address[0]).lower()
-            if host not in {"127.0.0.1", "::1", "localhost"}:
-                raise AssertionError(f"External connection attempted: {address}")
-            connections.append(address)
-            return real_create_connection(address, *args, **kwargs)
-
-        with patch.object(socket, "create_connection", new=loopback_only):
+    def test_transcription_does_not_use_network(self):
+        with patch.object(
+            main.urllib.request,
+            "urlopen",
+            side_effect=AssertionError("network request attempted"),
+        ):
             raw_text = main.transcribe_audio(load_sample_audio())
-            cleaned_text = main.clean_text_locally(raw_text)
 
         self.assertIn("ask not what your country can do for you", raw_text.lower())
-        self.assertEqual(cleaned_text, raw_text)
-        self.assertTrue(connections)
 
 
 class HotkeyAndOutputTest(unittest.TestCase):
@@ -393,24 +313,20 @@ class HotkeyAndOutputTest(unittest.TestCase):
 
     def test_copy_without_automatic_paste(self):
         with (
-            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value="raw"),
-            patch.object(main, "clean_text_locally", return_value="Clean."),
             patch.object(main.pyperclip, "copy") as copy,
             patch.object(main.keyboard, "send") as send,
             patch("sys.stdout", new_callable=StringIO),
         ):
             main.process_transcription(np.zeros(1, dtype=np.float32))
 
-        copy.assert_called_once_with("Clean.")
+        copy.assert_called_once_with("raw")
         send.assert_not_called()
 
     def test_copy_and_automatic_paste_when_enabled(self):
         main.AUTO_PASTE = True
         with (
-            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value="raw"),
-            patch.object(main, "clean_text_locally", return_value="Clean."),
             patch.object(main.pyperclip, "copy") as copy,
             patch.object(main.keyboard, "send") as send,
             patch.object(main.time, "sleep"),
@@ -418,7 +334,7 @@ class HotkeyAndOutputTest(unittest.TestCase):
         ):
             main.process_transcription(np.zeros(1, dtype=np.float32))
 
-        copy.assert_called_once_with("Clean.")
+        copy.assert_called_once_with("raw")
         send.assert_called_once_with("ctrl+v")
 
 
@@ -509,9 +425,7 @@ class PipelineReliabilityTest(unittest.TestCase):
     def test_clipboard_failure_returns_to_ready(self):
         main.app_state = main.ApplicationState.PROCESSING
         with (
-            patch.object(main, "CLEANUP", True),
             patch.object(main, "transcribe_audio", return_value="raw"),
-            patch.object(main, "clean_text_locally", return_value="Clean."),
             patch.object(main.pyperclip, "copy", side_effect=RuntimeError("clipboard busy")),
             patch("sys.stdout", new_callable=StringIO) as output,
         ):
@@ -524,14 +438,12 @@ class PipelineReliabilityTest(unittest.TestCase):
         main.app_state = main.ApplicationState.PROCESSING
         main.AUTO_PASTE = True
 
-        def clean_then_shutdown(raw_text):
+        def transcribe_then_shutdown(audio):
             main.shutdown_application()
-            return "Clean."
+            return "raw"
 
         with (
-            patch.object(main, "CLEANUP", True),
-            patch.object(main, "transcribe_audio", return_value="raw"),
-            patch.object(main, "clean_text_locally", side_effect=clean_then_shutdown),
+            patch.object(main, "transcribe_audio", side_effect=transcribe_then_shutdown),
             patch.object(main.pyperclip, "copy") as copy,
             patch.object(main.keyboard, "send") as send,
             patch.object(main.keyboard, "unhook_all"),

@@ -1,10 +1,9 @@
 # LocalFlow
 
 LocalFlow is a fully local, CPU-first push-to-talk dictation tool for 64-bit
-Windows. It transcribes English with whisper.cpp and can optionally clean the
-transcript with S1-mini by Superwhisper. Cleanup is disabled by default, so
-normal dictation requires only the Whisper model and no cloud service, account,
-API key, or dedicated GPU.
+Windows. It transcribes English with whisper.cpp and copies the raw transcript
+to the clipboard. It requires no cloud service, account, API key, or dedicated
+GPU.
 
 ## Supported hardware
 
@@ -13,13 +12,12 @@ inference. LocalFlow limits each inference engine to at most four logical CPU
 threads so that it remains usable on lower-powered systems.
 
 Allow roughly 160 MiB of disk space for the extracted application and required
-Whisper model. Enabling the current optional S1-mini cleanup adds about 462 MiB
-of model data. The current measurements were made on a modern Intel Core Ultra
+Whisper model. The current measurements were made on a modern Intel Core Ultra
 7 155H. Hardware from the last ten years is a design target, not a promise:
 older CPUs may take substantially longer and still need representative testing.
 
-LocalFlow is English-only in this release. Both the `base.en` transcription
-model and the S1-mini by Superwhisper cleanup configuration target English.
+LocalFlow is English-only in this release and uses the `base.en` transcription
+model.
 
 ## Install LocalFlow
 
@@ -28,14 +26,13 @@ model and the S1-mini by Superwhisper cleanup configuration target English.
 3. Double-click it, complete the installer, and open LocalFlow from the Start
    Menu.
 4. Keep the terminal open while LocalFlow downloads and verifies the Whisper
-   model on first run. The default one-time download is about 57 MiB. If local
-   cleanup is enabled, LocalFlow also downloads the roughly 462 MiB S1 model.
+   model on first run. The one-time download is about 57 MiB.
 5. Wait for the `Ready!` message.
 
-The installer includes LocalFlow, Python, and the pinned whisper.cpp and
-llama.cpp CPU runtimes. Python, Git, CMake, a compiler, and development tools
-are not needed on the user's computer. LocalFlow is installed only for the
-current Windows user, so the installer does not request administrator access.
+The installer includes LocalFlow, Python, and the pinned whisper.cpp CPU
+runtime. Python, Git, CMake, a compiler, and development tools are not needed
+on the user's computer. LocalFlow is installed only for the current Windows
+user, so the installer does not request administrator access.
 
 The current installer is not code-signed, so Windows may identify its publisher
 as unknown. Download it only from the official LocalFlow release page and
@@ -61,13 +58,12 @@ without starting the hotkey listener:
 1. Put the cursor where you eventually want the text.
 2. Hold the configured hotkey and wait for `Recording started`.
 3. Speak for at least 0.3 seconds, then release the hotkey.
-4. Wait while LocalFlow transcribes and, when enabled, cleans the text. Only one
-   recording can be processed at a time.
+4. Wait while LocalFlow transcribes the text. Only one recording can be
+   processed at a time.
 5. Paste from the clipboard with `Ctrl+V`, unless automatic paste is enabled.
 
-A recording is limited to 60 seconds. If S1-mini cleanup fails or is
-unavailable, LocalFlow keeps the successful raw Whisper transcript and copies
-that instead. Empty or silent recordings do not invoke cleanup.
+A recording is limited to 60 seconds. Empty or silent recordings do not copy
+text.
 
 Keep the terminal window open. Press `Ctrl+C` there for a clean shutdown.
 
@@ -78,7 +74,6 @@ it again. Installer upgrades preserve this file. The default is:
 
 ```text
 HOTKEY=f23
-CLEANUP=false
 AUTO_PASTE=false
 ```
 
@@ -99,11 +94,6 @@ while Ctrl and Shift are held. Releasing Space, or releasing a required
 modifier early, stops the recording. Choose a combination that does not
 conflict with shortcuts in your other applications.
 
-With `CLEANUP=true`, LocalFlow processes each raw Whisper transcript through
-S1-mini by Superwhisper. With `CLEANUP=false`, it skips S1-mini and copies the
-raw Whisper transcript directly. When cleanup is disabled, the S1-mini model
-and llama.cpp runtime are not required during normal use.
-
 Every successful result is copied to the clipboard. With the safer default
 `AUTO_PASTE=false`, LocalFlow never sends a paste keystroke. With
 `AUTO_PASTE=true`, it sends `Ctrl+V` to whichever application has focus when
@@ -113,11 +103,9 @@ recording began, so leave this disabled if focus can change unexpectedly.
 ## Privacy and network behavior
 
 - The only required external network activity is the first-run download of the
-  pinned Whisper model from its official Hugging Face repository. Enabling the
-  current local cleanup also downloads the pinned S1 model once.
-- Once valid models are present, normal transcription and cleanup make no
-  external network request. S1-mini communicates with a temporary llama.cpp
-  server bound only to `127.0.0.1` on the same computer.
+  pinned Whisper model from its official Hugging Face repository.
+- Once that valid model is present, normal transcription makes no external
+  network request.
 - Recorded audio is written to a temporary WAV file for whisper.cpp and removed
   immediately after that transcription attempt.
 - LocalFlow does not create transcript history or log files. The raw and final
@@ -128,23 +116,20 @@ recording began, so leave this disabled if focus can change unexpectedly.
 
 ## Observed performance
 
-These published v0.1.1 measurements used the `base.en` Q5 model, four CPU
+These v0.2 measurements used the `base.en` Q5 model, four CPU
 threads, and the fixed 11-second JFK audio sample on an Intel Core Ultra 7
-155H. They measured the optional local S1 cleanup path:
+155H:
 
 | Measurement | First measured run | Three repeat runs |
 | --- | ---: | ---: |
-| Complete new LocalFlow process | 4.13 s | 3.98–4.26 s |
-| Whisper transcription | 1.28 s | 1.23–1.46 s |
-| S1-mini cleanup | 1.81 s | 1.79–2.04 s |
-| Whisper-to-cleaned-text pipeline | 3.09 s | 3.05–3.35 s |
-| Peak complete-process-tree working set | 939.5 MiB | 938.7–939.9 MiB |
+| Complete new LocalFlow process | 4.79 s | 3.80–5.08 s |
+| Whisper transcription | 3.60 s | 2.61–3.72 s |
+| Raw-transcript pipeline | 3.60 s | 2.61–3.72 s |
+| Peak complete-process-tree working set | 264.0 MiB | 264.2–265.2 MiB |
 
-Every dictation starts new native Whisper and S1 processes, so the model-load
-cost is included in every pipeline value. “Repeat” means a new LocalFlow process
-with a likely warm Windows filesystem cache, not a permanently resident model.
-The monitor sampled the packaged controller and its active native child every
-25 ms. Full details are in `benchmarks/PHASE8_RESULTS.md`.
+Every dictation starts a new native Whisper process, so model-load cost is
+included. The monitor sampled the packaged controller and its active native
+child every 25 ms.
 
 Latency depends on CPU generation, current load, power mode, storage, and
 filesystem caching. Do not assume that an older computer will match the
@@ -180,9 +165,6 @@ shortcut conflict. Restart LocalFlow after editing the file.
 **LocalFlow says `Still processing`.** Wait for the next `Ready!` message.
 Overlapping recordings are intentionally blocked.
 
-**Cleanup failed.** The raw Whisper transcript is still copied. Verify the
-installation to check the S1-mini model and llama.cpp runtime.
-
 **Automatic paste went to the wrong application.** Set `AUTO_PASTE=false` and
 paste manually. Automatic paste always uses the focus at completion time.
 
@@ -193,8 +175,16 @@ slower than the published development-system measurement.
 ## Remove LocalFlow
 
 Open Windows **Settings → Apps → Installed apps**, find LocalFlow, and choose
-**Uninstall**. To remove the downloaded models too, delete
+**Uninstall**. To remove the downloaded Whisper model too, delete
 `%LOCALAPPDATA%\LocalFlow`. LocalFlow does not install a background service.
+
+An upgrade from an older build removes the obsolete llama.cpp files from the
+application installation, but intentionally leaves user model data alone. If
+it exists, the retired S1 model can be removed manually at exactly:
+
+```text
+%LOCALAPPDATA%\LocalFlow\models\s1-mini-q4_k_m.gguf
+```
 
 Third-party versions, checksums, licenses, and notices are listed in
 `THIRD_PARTY_NOTICES.md` and the `licenses` folder.

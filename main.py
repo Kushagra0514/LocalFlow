@@ -1,7 +1,5 @@
 import hashlib
-import json
 import os
-import socket
 import ssl
 import subprocess
 import sys
@@ -48,18 +46,6 @@ MAX_RECORDING_SAMPLES = SAMPLE_RATE * MAX_RECORDING_SECONDS
 WHISPER_THREADS = min(4, os.cpu_count() or 1)
 WHISPER_CLI = RUNTIME_DIR / "whisper" / "Release" / "whisper-cli.exe"
 WHISPER_MODEL = MODEL_DIR / "ggml-base.en-q5_1.bin"
-LLAMA_SERVER = RUNTIME_DIR / "llama" / "llama-server.exe"
-S1_MODEL = MODEL_DIR / "s1-mini-q4_k_m.gguf"
-S1_THREADS = WHISPER_THREADS
-S1_CONTEXT_SIZE = 2_048
-S1_SYSTEM_PROMPT = (
-    "You are a text normalizer for speech-to-text transcripts. The input begins "
-    "with a control line specifying the styling, structure, and context settings; "
-    "clean the transcript to match those settings and output only the cleaned text."
-)
-S1_CONTROL_LINE = (
-    "[Styling: semi-formal] [Structure: prose] [Context: general]"
-)
 
 
 class ModelSpec(NamedTuple):
@@ -79,19 +65,10 @@ MODEL_SPECS = (
         59_721_011,
         "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f",
     ),
-    ModelSpec(
-        "S1-mini by Superwhisper Q4_K_M",
-        "s1-mini-q4_k_m.gguf",
-        "https://huggingface.co/superwhisper/s1-mini-GGUF/resolve/"
-        "34add00a48a2e5d24e5a4ee5405a99620a3a240c/s1-mini-q4_k_m.gguf",
-        484_219_808,
-        "3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634",
-    ),
 )
 
 HOTKEY = "f23"
 AUTO_PASTE = False
-CLEANUP = False
 hotkey_modifier_codes = ()
 hotkey_trigger_codes = frozenset()
 pressed_key_codes = set()
@@ -116,7 +93,7 @@ active_native_process = None
 
 
 def load_config(config_path=None):
-    settings = {"HOTKEY": "f23", "AUTO_PASTE": "false", "CLEANUP": "false"}
+    settings = {"HOTKEY": "f23", "AUTO_PASTE": "false"}
     config_path = config_path or APP_DIR / "config.txt"
     if config_path.exists():
         with config_path.open(encoding="utf-8") as config_file:
@@ -154,7 +131,7 @@ def parse_hotkey(hotkey):
 
 
 def configure():
-    global HOTKEY, AUTO_PASTE, CLEANUP, hotkey_is_down, app_state
+    global HOTKEY, AUTO_PASTE, hotkey_is_down, app_state
     global hotkey_modifier_codes, hotkey_trigger_codes
 
     settings = load_config()
@@ -165,10 +142,6 @@ def configure():
     if auto_paste not in {"true", "false"}:
         raise ValueError("AUTO_PASTE must be either true or false.")
     AUTO_PASTE = auto_paste == "true"
-    cleanup = settings["CLEANUP"].lower()
-    if cleanup not in {"true", "false"}:
-        raise ValueError("CLEANUP must be either true or false.")
-    CLEANUP = cleanup == "true"
     pressed_key_codes.clear()
     hotkey_is_down = False
     app_state = ApplicationState.READY
@@ -252,14 +225,12 @@ def ensure_model(spec, model_dir=None):
 
 
 def ensure_models():
-    required_specs = MODEL_SPECS if CLEANUP else MODEL_SPECS[:1]
-    for spec in required_specs:
+    for spec in MODEL_SPECS:
         ensure_model(spec)
 
 
 def validate_native_runtimes():
-    required = (WHISPER_CLI, LLAMA_SERVER) if CLEANUP else (WHISPER_CLI,)
-    missing = [path for path in required if not path.is_file()]
+    missing = [path for path in (WHISPER_CLI,) if not path.is_file()]
     if missing:
         paths = "\n".join(f"  - {path}" for path in missing)
         raise FileNotFoundError(
@@ -276,35 +247,20 @@ def validate_whisper_installation():
         )
 
 
-def validate_s1_installation():
-    missing = [path for path in (LLAMA_SERVER, S1_MODEL) if not path.is_file()]
-    if missing:
-        paths = "\n".join(f"  - {path}" for path in missing)
-        raise FileNotFoundError(
-            "Local S1-mini by Superwhisper/llama.cpp installation is incomplete. "
-            "Missing:\n" + paths
-        )
-
-
 def verify_native_runtimes():
-    runtimes = (
-        ("whisper.cpp", WHISPER_CLI),
-        ("llama.cpp", LLAMA_SERVER),
-    )
-    for name, executable in runtimes if CLEANUP else runtimes[:1]:
-        try:
-            result = subprocess.run(
-                [str(executable), "--version"],
-                capture_output=True,
-                text=True,
-                timeout=15,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-            )
-        except (OSError, subprocess.TimeoutExpired) as error:
-            raise RuntimeError(f"Could not launch packaged {name}: {error}") from error
-        if result.returncode != 0:
-            detail = result.stderr.strip() or result.stdout.strip() or result.returncode
-            raise RuntimeError(f"Packaged {name} failed its version check: {detail}")
+    try:
+        result = subprocess.run(
+            [str(WHISPER_CLI), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError(f"Could not launch packaged whisper.cpp: {error}") from error
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or result.returncode
+        raise RuntimeError(f"Packaged whisper.cpp failed its version check: {detail}")
 
 
 def start_native_process(command, **kwargs):
@@ -440,122 +396,6 @@ def audio_callback(indata, frames, callback_time, status):
             recorded_samples += len(chunk)
 
 
-def cleanup_token_limit(raw_text):
-    """Approximate S1's recommended 1.3 * input tokens + 32 output budget."""
-    input_tokens = max(1, (len(raw_text) + 3) // 4)
-    return min(1_024, (input_tokens * 13 + 9) // 10 + 32)
-
-
-def clean_text_locally(raw_text):
-    """Clean text with S1-mini by Superwhisper through a local llama.cpp server."""
-    validate_s1_installation()
-    max_tokens = cleanup_token_limit(raw_text)
-
-    with socket.socket() as port_socket:
-        port_socket.bind(("127.0.0.1", 0))
-        port = port_socket.getsockname()[1]
-
-    command = [
-        str(LLAMA_SERVER),
-        "-m",
-        str(S1_MODEL),
-        "--host",
-        "127.0.0.1",
-        "--port",
-        str(port),
-        "--jinja",
-        "--chat-template-kwargs",
-        '{"enable_thinking":false}',
-        "-t",
-        str(S1_THREADS),
-        "-c",
-        str(S1_CONTEXT_SIZE),
-        "--log-disable",
-    ]
-
-    print("Cleaning text locally with S1-mini by Superwhisper...")
-    try:
-        server = start_native_process(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-        )
-    except OSError as error:
-        raise RuntimeError(f"Could not start llama.cpp: {error}") from error
-
-    try:
-        health_url = f"http://127.0.0.1:{port}/health"
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline:
-            if server.poll() is not None:
-                detail = server.stderr.read().strip()
-                raise RuntimeError(
-                    "llama.cpp stopped while loading S1-mini by Superwhisper: "
-                    + (detail or f"exit code {server.returncode}")
-                )
-            try:
-                with urllib.request.urlopen(health_url, timeout=0.5):
-                    break
-            except (OSError, urllib.error.URLError):
-                time.sleep(0.1)
-        else:
-            raise RuntimeError(
-                "llama.cpp did not load S1-mini by Superwhisper within 30 seconds."
-            )
-
-        payload = json.dumps(
-            {
-                "model": "s1-mini",
-                "messages": [
-                    {"role": "system", "content": S1_SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": f"{S1_CONTROL_LINE}\n{raw_text}",
-                    },
-                ],
-                "temperature": 0,
-                "top_k": 1,
-                "seed": 0,
-                "max_tokens": max_tokens,
-            }
-        ).encode("utf-8")
-        request = urllib.request.Request(
-            f"http://127.0.0.1:{port}/v1/chat/completions",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=120) as response:
-                result = json.load(response)
-        except (OSError, urllib.error.URLError, json.JSONDecodeError) as error:
-            raise RuntimeError(
-                f"Local S1-mini by Superwhisper request failed: {error}"
-            ) from error
-
-        try:
-            return result["choices"][0]["message"]["content"].strip()
-        except (KeyError, IndexError, TypeError, AttributeError) as error:
-            raise RuntimeError(
-                "Local S1-mini by Superwhisper returned an invalid response."
-            ) from error
-    finally:
-        if server.poll() is None:
-            server.terminate()
-            try:
-                server.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                server.kill()
-                server.wait()
-        if server.stderr:
-            server.stderr.close()
-        clear_native_process(server)
-
-
 def print_ready():
     print(f"\nReady! Hold [{HOTKEY.upper()}] to record. (Press Ctrl+C to exit)")
 
@@ -582,18 +422,7 @@ def process_transcription(audio_data):
             print("No speech detected.")
             return
 
-        print(f"\n[Raw Transcript]: {full_text}")
-        if CLEANUP:
-            try:
-                final_text = clean_text_locally(full_text)
-            except Exception as error:
-                print(f"Cleanup error: {error}")
-                print("Using the raw transcript instead.")
-                final_text = full_text
-        else:
-            print("Cleanup is disabled; using the raw transcript.")
-            final_text = full_text
-
+        final_text = full_text
         print("-" * 20)
         print(final_text)
         print("-" * 20)
@@ -908,25 +737,20 @@ def run_release_smoke_test(audio_path):
     sampler.start()
     started = time.perf_counter()
     try:
-        raw_text = transcribe_audio(audio_data)
+        transcript = transcribe_audio(audio_data)
         whisper_seconds = time.perf_counter() - started
-        if not raw_text:
+        if not transcript:
             raise RuntimeError("Release smoke test produced an empty transcript.")
-        cleanup_started = time.perf_counter()
-        cleaned_text = clean_text_locally(raw_text) if CLEANUP else raw_text
-        cleanup_seconds = time.perf_counter() - cleanup_started
     finally:
         stop_sampling.set()
         sampler.join()
 
     total_seconds = time.perf_counter() - started
-    print(f"[Smoke Raw]: {raw_text}")
-    print(f"[Smoke Clean]: {cleaned_text}")
+    print(f"[Smoke Transcript]: {transcript}")
     print(f"[Smoke Whisper Seconds]: {whisper_seconds:.3f}")
-    print(f"[Smoke Cleanup Seconds]: {cleanup_seconds:.3f}")
     print(f"[Smoke Pipeline Seconds]: {total_seconds:.3f}")
     print(f"[Smoke Peak MiB]: {peak_bytes[0] / 1024 / 1024:.1f}")
-    return raw_text, cleaned_text
+    return transcript
 
 
 def main(argv=None):
@@ -951,8 +775,6 @@ def main(argv=None):
         validate_native_runtimes()
         ensure_models()
         validate_whisper_installation()
-        if CLEANUP:
-            validate_s1_installation()
         if argv == ["--verify-installation"]:
             verify_native_runtimes()
         elif smoke_test:
@@ -978,13 +800,7 @@ def main(argv=None):
     print(
         f"Using local whisper.cpp base.en Q5 model with {WHISPER_THREADS} CPU threads."
     )
-    if CLEANUP:
-        print(
-            f"Using local S1-mini by Superwhisper Q4_K_M cleanup with "
-            f"{S1_THREADS} CPU threads."
-        )
-    else:
-        print("S1-mini cleanup is off; raw Whisper transcripts will be used.")
+    print("Raw Whisper transcripts will be used.")
     print(f"Automatic paste is {'on' if AUTO_PASTE else 'off'}.")
     try:
         keyboard.hook(handle_hotkey_event, suppress=False)

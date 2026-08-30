@@ -26,8 +26,16 @@ $OldDataDirectory = $env:LOCALFLOW_DATA_DIR
 try {
     New-Item -ItemType Directory -Force -Path $InstallRoot, $ModelRoot | Out-Null
     Expand-Archive -LiteralPath $Package -DestinationPath $InstallRoot
-    foreach ($Model in @("ggml-base.en-q5_1.bin", "s1-mini-q4_k_m.gguf")) {
-        Copy-Item -LiteralPath (Join-Path $ModelSeedDirectory $Model) -Destination $ModelRoot
+    Copy-Item `
+        -LiteralPath (Join-Path $ModelSeedDirectory "ggml-base.en-q5_1.bin") `
+        -Destination $ModelRoot
+    $ForbiddenFiles = Get-ChildItem -LiteralPath $InstallRoot -File -Recurse |
+        Where-Object {
+            $_.Extension -ieq ".gguf" -or
+            $_.Name -match "(?i)llama|s1-mini|S1_MINI"
+        }
+    if ($ForbiddenFiles) {
+        throw "Package contains obsolete local-cleanup files: $($ForbiddenFiles.FullName -join ', ')"
     }
 
     $env:LOCALFLOW_DATA_DIR = $CacheRoot
@@ -55,4 +63,4 @@ finally {
 if (Test-Path -LiteralPath $TestRoot) {
     throw "Package-test removal left files behind at $TestRoot"
 }
-Write-Host "Isolated package install, end-to-end smoke test, and removal passed."
+Write-Host "Whisper-only package contents, isolated smoke test, and removal passed."

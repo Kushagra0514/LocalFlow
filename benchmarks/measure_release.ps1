@@ -48,7 +48,6 @@ try {
             Cache = if ($Run -eq 1) { "first" } else { "repeat" }
             ProcessSeconds = [Math]::Round($Timer.Elapsed.TotalSeconds, 3)
             WhisperSeconds = Read-Measurement $Output "Whisper Seconds"
-            CleanupSeconds = Read-Measurement $Output "Cleanup Seconds"
             PipelineSeconds = Read-Measurement $Output "Pipeline Seconds"
             PeakMiB = Read-Measurement $Output "Peak MiB"
         }

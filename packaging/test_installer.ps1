@@ -15,16 +15,36 @@ $ExpectedPrefix = $RepoRoot + [IO.Path]::DirectorySeparatorChar + ".local" + [IO
 
 try {
     New-Item -ItemType Directory -Force -Path $TestRoot | Out-Null
+    $InstallLog = Join-Path $TestRoot "install.log"
     $Install = Start-Process -FilePath $Installer -ArgumentList @(
-        "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$InstallRoot"
+        "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-",
+        "/DIR=$InstallRoot", "/LOG=$InstallLog"
     ) -Wait -PassThru -WindowStyle Hidden
     if ($Install.ExitCode -ne 0) {
-        throw "Installer failed with exit code $($Install.ExitCode)"
+        $Details = if (Test-Path -LiteralPath $InstallLog) {
+            Get-Content -LiteralPath $InstallLog -Raw
+        } else {
+            "Installer did not create a log."
+        }
+        throw "Installer failed with exit code $($Install.ExitCode):`n$Details"
     }
 
     $Config = Join-Path $InstallRoot "config.txt"
     $CustomConfig = "HOTKEY=f12`r`nAUTO_PASTE=true`r`n"
     Set-Content -LiteralPath $Config -Value $CustomConfig -NoNewline
+
+    $ObsoleteRuntime = Join-Path $InstallRoot "runtime\llama"
+    $LicenseRoot = Join-Path $InstallRoot "licenses"
+    New-Item -ItemType Directory -Force -Path $ObsoleteRuntime, $LicenseRoot | Out-Null
+    Set-Content -LiteralPath (Join-Path $ObsoleteRuntime "llama-server.exe") -Value "obsolete"
+    foreach ($License in @(
+        "LLAMA_CPP_LICENSE.txt",
+        "S1_MINI_LICENSE.txt",
+        "S1_MINI_NOTICE.txt"
+    )) {
+        Set-Content -LiteralPath (Join-Path $LicenseRoot $License) -Value "obsolete"
+    }
+
     $Upgrade = Start-Process -FilePath $Installer -ArgumentList @(
         "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$InstallRoot"
     ) -Wait -PassThru -WindowStyle Hidden
@@ -33,6 +53,26 @@ try {
     }
     if ((Get-Content -LiteralPath $Config -Raw) -ne $CustomConfig) {
         throw "Installer upgrade replaced the user's config.txt"
+    }
+    if (Test-Path -LiteralPath $ObsoleteRuntime) {
+        throw "Installer upgrade left the obsolete runtime\llama directory behind"
+    }
+    foreach ($License in @(
+        "LLAMA_CPP_LICENSE.txt",
+        "S1_MINI_LICENSE.txt",
+        "S1_MINI_NOTICE.txt"
+    )) {
+        if (Test-Path -LiteralPath (Join-Path $LicenseRoot $License)) {
+            throw "Installer upgrade left obsolete license $License behind"
+        }
+    }
+    $ForbiddenFiles = Get-ChildItem -LiteralPath $InstallRoot -File -Recurse |
+        Where-Object {
+            $_.Extension -ieq ".gguf" -or
+            $_.Name -match "(?i)llama|s1-mini|S1_MINI"
+        }
+    if ($ForbiddenFiles) {
+        throw "Installed application contains obsolete local-cleanup files: $($ForbiddenFiles.FullName -join ', ')"
     }
 
     $Executable = Join-Path $InstallRoot "LocalFlow.exe"
@@ -62,4 +102,4 @@ finally {
 if (Test-Path -LiteralPath $TestRoot) {
     throw "Installer-test removal left files behind at $TestRoot"
 }
-Write-Host "Silent install, config-preserving upgrade, launch, uninstall, and cleanup passed."
+Write-Host "Silent install, precise obsolete-file cleanup, config-preserving upgrade, launch, and uninstall passed."

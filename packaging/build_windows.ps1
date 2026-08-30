@@ -69,31 +69,19 @@ if (-not $IsWindows -or [Runtime.InteropServices.RuntimeInformation]::OSArchitec
 }
 
 $WhisperArchive = Join-Path $DownloadRoot "whisper-b4938-bin-x64.zip"
-$LlamaArchive = Join-Path $DownloadRoot "llama-b10516-bin-win-cpu-x64.zip"
 Get-VerifiedArtifact `
     "whisper.cpp b4938" `
     "https://github.com/ggml-org/whisper.cpp/releases/download/b4938/whisper-bin-x64.zip" `
     "c2a4b60edb11f7e11a9191ffb50929535527d4d91c9903dbe3e554583bbbc63d" `
     $WhisperArchive `
     (Join-Path $RepoRoot ".local\phase1\downloads\whisper-b4938-x64.zip")
-Get-VerifiedArtifact `
-    "llama.cpp b10516" `
-    "https://github.com/ggml-org/llama.cpp/releases/download/b10516/llama-b10516-bin-win-cpu-x64.zip" `
-    "fbbbc55e0eb2e1b07f9dcb9488616c98ed47d9003b90e15e7c8c7812c4307cd3" `
-    $LlamaArchive `
-    (Join-Path $RepoRoot ".local\phase1\downloads\llama-b10516-win-cpu-x64.zip")
-
 Reset-Directory $RuntimeRoot
 $WhisperExpanded = Join-Path $LocalRoot "whisper-expanded"
-$LlamaExpanded = Join-Path $LocalRoot "llama-expanded"
 Reset-Directory $WhisperExpanded
-Reset-Directory $LlamaExpanded
 Expand-Archive -LiteralPath $WhisperArchive -DestinationPath $WhisperExpanded
-Expand-Archive -LiteralPath $LlamaArchive -DestinationPath $LlamaExpanded
 
 $WhisperTarget = Join-Path $RuntimeRoot "whisper\Release"
-$LlamaTarget = Join-Path $RuntimeRoot "llama"
-New-Item -ItemType Directory -Force -Path $WhisperTarget, $LlamaTarget | Out-Null
+New-Item -ItemType Directory -Force -Path $WhisperTarget | Out-Null
 $WhisperFiles = @(
     "whisper-cli.exe", "whisper.dll", "ggml.dll", "ggml-base.dll",
     "ggml-cpu-x64.dll", "ggml-cpu-sse42.dll", "ggml-cpu-sandybridge.dll",
@@ -101,29 +89,14 @@ $WhisperFiles = @(
     "ggml-cpu-cannonlake.dll", "ggml-cpu-cascadelake.dll",
     "ggml-cpu-icelake.dll", "ggml-cpu-skylakex.dll"
 )
-$LlamaFiles = @(
-    "llama-server.exe", "llama-server-impl.dll", "llama-common.dll",
-    "llama.dll", "mtmd.dll", "ggml.dll", "ggml-base.dll",
-    "libomp140.x86_64.dll", "ggml-cpu-x64.dll", "ggml-cpu-sse42.dll",
-    "ggml-cpu-piledriver.dll", "ggml-cpu-sandybridge.dll",
-    "ggml-cpu-ivybridge.dll", "ggml-cpu-haswell.dll",
-    "ggml-cpu-alderlake.dll", "ggml-cpu-cannonlake.dll",
-    "ggml-cpu-cascadelake.dll", "ggml-cpu-cooperlake.dll",
-    "ggml-cpu-icelake.dll", "ggml-cpu-skylakex.dll",
-    "ggml-cpu-sapphirerapids.dll", "ggml-cpu-zen4.dll"
-)
 foreach ($File in $WhisperFiles) {
     Copy-Item -LiteralPath (Join-Path $WhisperExpanded "Release\$File") -Destination $WhisperTarget
-}
-foreach ($File in $LlamaFiles) {
-    Copy-Item -LiteralPath (Join-Path $LlamaExpanded $File) -Destination $LlamaTarget
 }
 
 $VisualCppFiles = @("MSVCP140.dll", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll")
 foreach ($File in $VisualCppFiles) {
     $Source = Join-Path $env:WINDIR "System32\$File"
     Copy-Item -LiteralPath $Source -Destination $WhisperTarget
-    Copy-Item -LiteralPath $Source -Destination $LlamaTarget
 }
 Copy-Item -LiteralPath (Join-Path $env:WINDIR "System32\VCOMP140.dll") -Destination $WhisperTarget
 
@@ -171,11 +144,6 @@ foreach ($File in @(
 foreach ($File in @(
     "ggml-base.dll",
     "ggml.dll",
-    "libomp140.x86_64.dll",
-    "llama-common.dll",
-    "llama-server-impl.dll",
-    "llama.dll",
-    "mtmd.dll",
     "whisper.dll"
 )) {
     $DuplicateRuntime = Join-Path $PackageRoot $File
@@ -203,7 +171,6 @@ $Manifest = [ordered]@{
     version = "0.1.1"
     platform = "windows-x64"
     whisper_cpp = "b4938"
-    llama_cpp = "b10516"
     models_bundled = $false
     runtime_files = @($RuntimeHashes)
 }

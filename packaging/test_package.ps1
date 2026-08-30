@@ -26,6 +26,12 @@ $OldDataDirectory = $env:LOCALFLOW_DATA_DIR
 try {
     New-Item -ItemType Directory -Force -Path $InstallRoot, $ModelRoot | Out-Null
     Expand-Archive -LiteralPath $Package -DestinationPath $InstallRoot
+    if (-not (Test-Path -LiteralPath (Join-Path $InstallRoot "config.default.ini"))) {
+        throw "Package is missing config.default.ini"
+    }
+    if (Test-Path -LiteralPath (Join-Path $InstallRoot "config.txt")) {
+        throw "Package still contains the retired live config.txt"
+    }
     Copy-Item `
         -LiteralPath (Join-Path $ModelSeedDirectory "ggml-base.en-q5_1.bin") `
         -Destination $ModelRoot
@@ -42,6 +48,10 @@ try {
     & (Join-Path $InstallRoot "LocalFlow.exe") --verify-installation
     if ($LASTEXITCODE -ne 0) {
         throw "Packaged installation verification failed with exit code $LASTEXITCODE"
+    }
+    $LiveConfig = Join-Path $CacheRoot "config.ini"
+    if (-not (Test-Path -LiteralPath $LiveConfig)) {
+        throw "Packaged application did not create the canonical config.ini"
     }
     & (Join-Path $InstallRoot "LocalFlow.exe") --smoke-test $Sample
     if ($LASTEXITCODE -ne 0) {

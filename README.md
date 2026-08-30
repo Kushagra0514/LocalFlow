@@ -50,6 +50,8 @@ without starting the hotkey listener:
 ```powershell
 .\LocalFlow.exe --setup-models
 .\LocalFlow.exe --verify-installation
+.\LocalFlow.exe --config-path
+.\LocalFlow.exe --check-config
 .\LocalFlow.exe --version
 ```
 
@@ -69,23 +71,44 @@ Keep the terminal window open. Press `Ctrl+C` there for a clean shutdown.
 
 ## Configuration
 
-Edit `config.txt` beside `LocalFlow.exe` while LocalFlow is stopped, then start
-it again. Installer upgrades preserve this file. The default is:
+The one live configuration is `%LOCALAPPDATA%\LocalFlow\config.ini`. LocalFlow
+prints this path at ordinary startup. Run `LocalFlow.exe --config-path` to print
+only the path or `LocalFlow.exe --check-config` to validate the file without
+starting the hotkey listener.
 
-```text
-HOTKEY=f23
-AUTO_PASTE=false
+Edit `config.ini` while LocalFlow is stopped, then start it again. The safe
+defaults are:
+
+```ini
+[hotkeys]
+dictation = f23
+command = ctrl+shift+.
+
+[output]
+auto_paste = false
+
+[cleanup]
+enabled = false
+
+[commands]
+enabled = false
+
+[ai]
+provider = groq
+model = llama-3.1-8b-instant
+timeout_seconds = 15
 ```
 
-`HOTKEY` accepts a single key or a modifier combination. For combinations,
-list every modifier first and one ordinary trigger key last:
+The `dictation` and `command` hotkeys must be different. Each accepts a single
+key or a modifier combination. For combinations, list every modifier first and
+one ordinary trigger key last:
 
-```text
-HOTKEY=f23
-HOTKEY=f12
-HOTKEY=ctrl
-HOTKEY=right shift
-HOTKEY=ctrl+shift+space
+```ini
+dictation = f23
+dictation = f12
+dictation = ctrl
+dictation = right shift
+dictation = ctrl+shift+space
 ```
 
 `f23` keeps the Windows Copilot key behavior working on keyboards that emit
@@ -95,10 +118,16 @@ modifier early, stops the recording. Choose a combination that does not
 conflict with shortcuts in your other applications.
 
 Every successful result is copied to the clipboard. With the safer default
-`AUTO_PASTE=false`, LocalFlow never sends a paste keystroke. With
-`AUTO_PASTE=true`, it sends `Ctrl+V` to whichever application has focus when
+`auto_paste = false`, LocalFlow never sends a paste keystroke. With
+`auto_paste = true`, it sends `Ctrl+V` to whichever application has focus when
 processing finishes. That may not be the application that was focused when
 recording began, so leave this disabled if focus can change unexpectedly.
+
+On first run, LocalFlow imports only `HOTKEY` and `AUTO_PASTE` from an older
+`config.txt` beside the executable. It leaves that TXT file untouched for
+rollback. A legacy `CLEANUP=true` is deliberately ignored and cloud cleanup is
+initialized to false, so an upgrade cannot silently enable transcript upload.
+API keys remain environment variables and cannot be stored in this INI.
 
 ## Privacy and network behavior
 
@@ -158,14 +187,15 @@ use it. Close other software that has exclusive control of the device.
 **No speech is detected.** Hold the hotkey for at least 0.3 seconds, speak
 closer to the selected microphone, and check its input level in Windows.
 
-**The hotkey is rejected or does nothing.** Check the spelling in `config.txt`,
-put modifiers first, and use one non-modifier key last. Try `f12` to rule out a
-shortcut conflict. Restart LocalFlow after editing the file.
+**The configuration is rejected.** Run `LocalFlow.exe --check-config` for the
+specific section and key. Unknown settings are rejected. For hotkeys, put
+modifiers first, use one non-modifier key last, and ensure the dictation and
+command bindings differ. Try `f12` to rule out a shortcut conflict.
 
 **LocalFlow says `Still processing`.** Wait for the next `Ready!` message.
 Overlapping recordings are intentionally blocked.
 
-**Automatic paste went to the wrong application.** Set `AUTO_PASTE=false` and
+**Automatic paste went to the wrong application.** Set `auto_paste = false` and
 paste manually. Automatic paste always uses the focus at completion time.
 
 **Dictation is slow.** Keep the computer connected to power, close CPU-heavy

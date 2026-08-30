@@ -11,7 +11,9 @@ if (-not $Installer) {
 }
 $TestRoot = Join-Path $RepoRoot ".local\installer-test\$([Guid]::NewGuid())"
 $InstallRoot = Join-Path $TestRoot "LocalFlow"
+$DataRoot = Join-Path $TestRoot "data"
 $ExpectedPrefix = $RepoRoot + [IO.Path]::DirectorySeparatorChar + ".local" + [IO.Path]::DirectorySeparatorChar
+$OldDataDirectory = $env:LOCALFLOW_DATA_DIR
 
 try {
     New-Item -ItemType Directory -Force -Path $TestRoot | Out-Null
@@ -29,9 +31,28 @@ try {
         throw "Installer failed with exit code $($Install.ExitCode):`n$Details"
     }
 
-    $Config = Join-Path $InstallRoot "config.txt"
-    $CustomConfig = "HOTKEY=f12`r`nAUTO_PASTE=true`r`n"
-    Set-Content -LiteralPath $Config -Value $CustomConfig -NoNewline
+    if (-not (Test-Path -LiteralPath (Join-Path $InstallRoot "config.default.ini"))) {
+        throw "Installer did not install config.default.ini"
+    }
+    $LegacyConfig = Join-Path $InstallRoot "config.txt"
+    $LegacyContents = "HOTKEY=f12`r`nAUTO_PASTE=true`r`nCLEANUP=true`r`n"
+    Set-Content -LiteralPath $LegacyConfig -Value $LegacyContents -NoNewline
+    $Executable = Join-Path $InstallRoot "LocalFlow.exe"
+    $env:LOCALFLOW_DATA_DIR = $DataRoot
+    & $Executable --check-config
+    if ($LASTEXITCODE -ne 0) {
+        throw "Installed LocalFlow.exe failed to migrate and check config"
+    }
+    $LiveConfig = Join-Path $DataRoot "config.ini"
+    if (-not (Test-Path -LiteralPath $LiveConfig)) {
+        throw "Installed application did not create the user-data config.ini"
+    }
+    $LiveContents = Get-Content -LiteralPath $LiveConfig -Raw
+    if ($LiveContents -notmatch "(?m)^dictation = f12\r?$" -or
+        $LiveContents -notmatch "(?m)^auto_paste = true\r?$" -or
+        $LiveContents -notmatch "(?ms)^\[cleanup\]\r?\nenabled = false\r?$") {
+        throw "Legacy migration did not preserve hotkey/paste with cleanup disabled"
+    }
 
     $ObsoleteRuntime = Join-Path $InstallRoot "runtime\llama"
     $LicenseRoot = Join-Path $InstallRoot "licenses"
@@ -51,8 +72,14 @@ try {
     if ($Upgrade.ExitCode -ne 0) {
         throw "Installer upgrade failed with exit code $($Upgrade.ExitCode)"
     }
-    if ((Get-Content -LiteralPath $Config -Raw) -ne $CustomConfig) {
-        throw "Installer upgrade replaced the user's config.txt"
+    if ((Get-Content -LiteralPath $LegacyConfig -Raw) -ne $LegacyContents) {
+        throw "Installer upgrade changed the legacy config.txt rollback file"
+    }
+    if ((Get-Content -LiteralPath $LiveConfig -Raw) -ne $LiveContents) {
+        throw "Installer upgrade replaced the user-data config.ini"
+    }
+    if (Test-Path -LiteralPath (Join-Path $InstallRoot "config.ini")) {
+        throw "Installer placed a live config.ini beside LocalFlow.exe"
     }
     if (Test-Path -LiteralPath $ObsoleteRuntime) {
         throw "Installer upgrade left the obsolete runtime\llama directory behind"
@@ -75,7 +102,6 @@ try {
         throw "Installed application contains obsolete local-cleanup files: $($ForbiddenFiles.FullName -join ', ')"
     }
 
-    $Executable = Join-Path $InstallRoot "LocalFlow.exe"
     & $Executable --version
     if ($LASTEXITCODE -ne 0) {
         throw "Installed LocalFlow.exe failed with exit code $LASTEXITCODE"
@@ -90,6 +116,7 @@ try {
     }
 }
 finally {
+    $env:LOCALFLOW_DATA_DIR = $OldDataDirectory
     $FullTestRoot = [IO.Path]::GetFullPath($TestRoot)
     if (-not $FullTestRoot.StartsWith($ExpectedPrefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Refusing to remove unexpected installer-test path: $FullTestRoot"

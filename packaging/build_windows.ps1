@@ -112,7 +112,7 @@ $PyInstallerArguments = @(
     "--console", "--noupx", "--name", "LocalFlow", "--contents-directory", ".",
     "--distpath", $DistRoot, "--workpath", $BuildRoot,
     "--specpath", $BuildRoot,
-    "--add-data", "$(Join-Path $RepoRoot 'config.txt');.",
+    "--add-data", "$(Join-Path $RepoRoot 'config.default.ini');.",
     "--add-data", "$(Join-Path $RepoRoot 'README.md');.",
     "--add-data", "$(Join-Path $RepoRoot 'THIRD_PARTY_NOTICES.md');.",
     "--add-data", "$(Join-Path $RepoRoot 'licenses');licenses",

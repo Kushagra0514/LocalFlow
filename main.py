@@ -4,7 +4,7 @@ from pathlib import Path
 
 from localflow import APP_VERSION
 from localflow.application import Application
-from localflow.config import load_config
+from localflow.config import LIVE_CONFIG_FILENAME, load_config
 from localflow.pipeline import Pipeline, raw_dictation
 from localflow.types import JobPurpose
 from localflow.whisper import WhisperTranscriber
@@ -31,7 +31,12 @@ def application_paths():
 
 def build_application():
     app_dir, runtime_dir, data_dir = application_paths()
-    config = load_config(app_dir / "config.txt")
+    config_path = data_dir / LIVE_CONFIG_FILENAME
+    config = load_config(
+        config_path,
+        app_dir / "config.default.ini",
+        app_dir / "config.txt",
+    )
     transcriber = WhisperTranscriber(
         runtime_dir / "whisper" / "Release" / "whisper-cli.exe",
         data_dir / "models",
@@ -40,9 +45,9 @@ def build_application():
     return Application(
         transcriber,
         pipeline,
-        hotkey=config.hotkey,
+        hotkey=config.hotkeys.dictation,
         auto_paste=config.auto_paste,
-    ), data_dir / "models"
+    ), data_dir / "models", config
 
 
 def main(argv=None):
@@ -50,20 +55,28 @@ def main(argv=None):
     if argv == ["--version"]:
         print(f"LocalFlow {APP_VERSION}")
         return 0
+    if argv == ["--config-path"]:
+        print(application_paths()[2] / LIVE_CONFIG_FILENAME)
+        return 0
     smoke_test = len(argv) == 2 and argv[0] == "--smoke-test"
     if not (
         not argv
-        or argv in (["--setup-models"], ["--verify-installation"])
+        or argv in (["--setup-models"], ["--verify-installation"], ["--check-config"])
         or smoke_test
     ):
         print(
-            "Usage: LocalFlow [--setup-models | --verify-installation | "
-            "--smoke-test AUDIO.wav | --version]"
+            "Usage: LocalFlow [--config-path | --check-config | --setup-models | "
+            "--verify-installation | --smoke-test AUDIO.wav | --version]"
         )
         return 2
 
     try:
-        application, model_dir = build_application()
+        application, model_dir, config = build_application()
+        if argv == ["--check-config"]:
+            print(f"Configuration is valid: {config.path}")
+            return 0
+        if not argv:
+            print(f"Configuration: {config.path}")
         application.prepare()
         if argv == ["--verify-installation"]:
             application.verify_installation()

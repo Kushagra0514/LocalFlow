@@ -1,5 +1,7 @@
 import unittest
 from io import StringIO
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -161,6 +163,27 @@ class BootstrapTest(unittest.TestCase):
     def test_invalid_arguments_return_two(self):
         with patch("sys.stdout", new_callable=StringIO):
             self.assertEqual(main.main(["--unknown"]), 2)
+
+    def test_ordinary_startup_prints_live_config_path(self):
+        application = MagicMock()
+        application.run.return_value = 0
+        config_path = Path("user-data") / "config.ini"
+        with (
+            patch.object(
+                main,
+                "build_application",
+                return_value=(
+                    application,
+                    Path("models"),
+                    SimpleNamespace(path=config_path),
+                ),
+            ),
+            patch("sys.stdout", new_callable=StringIO) as output,
+        ):
+            self.assertEqual(main.main([]), 0)
+        self.assertIn(str(config_path), output.getvalue())
+        application.prepare.assert_called_once_with()
+        application.run.assert_called_once_with()
 
 
 if __name__ == "__main__":

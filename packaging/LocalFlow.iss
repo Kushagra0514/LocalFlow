@@ -30,8 +30,7 @@ VersionInfoProductName={#AppName}
 VersionInfoProductVersion={#AppVersion}
 
 [Files]
-Source: "..\dist\LocalFlow\*"; Excludes: "config.txt"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\dist\LocalFlow\config.txt"; DestDir: "{app}"; Flags: onlyifdoesntexist
+Source: "..\dist\LocalFlow\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
 Type: filesandordirs; Name: "{app}\runtime\llama"

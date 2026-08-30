@@ -31,23 +31,25 @@ class ReleaseConsistencyTest(unittest.TestCase):
 
     def test_raw_dictation_defaults_are_consistent(self):
         with tempfile.TemporaryDirectory() as directory:
-            missing_config = Path(directory) / "missing-config.txt"
-            defaults = load_config(missing_config)
-        configured = load_config(ROOT / "config.txt")
+            root = Path(directory)
+            defaults = load_config(
+                root / "config.ini", ROOT / "config.default.ini"
+            )
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
         self.assertFalse(hasattr(main, "CLEANUP"))
-        self.assertNotIn("CLEANUP=", readme)
         self.assertFalse(defaults.auto_paste)
-        self.assertFalse(configured.auto_paste)
-        self.assertIn("AUTO_PASTE=false", readme)
+        self.assertFalse(defaults.cleanup_enabled)
+        self.assertFalse(defaults.commands_enabled)
+        self.assertIn("auto_paste = false", readme)
+        self.assertIn("[cleanup]\nenabled = false", readme)
 
     def test_active_release_has_no_local_cleanup_stack(self):
         active_release = "\n".join(
             (ROOT / path).read_text(encoding="utf-8-sig")
             for path in (
                 "localflow/whisper.py",
-                "config.txt",
+                "config.default.ini",
                 "packaging/build_windows.ps1",
                 "THIRD_PARTY_NOTICES.md",
             )

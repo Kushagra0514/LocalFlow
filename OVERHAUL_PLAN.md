@@ -332,29 +332,29 @@ provider-specific environment variables.
 
 ### Steps
 
-- [ ] **3.1** Add `config.default.ini` containing the documented safe defaults.
-- [ ] **3.2** Parse configuration with Python’s standard-library
+- [x] **3.1** Add `config.default.ini` containing the documented safe defaults.
+- [x] **3.2** Parse configuration with Python’s standard-library
   `configparser` in `localflow/config.py`.
-- [ ] **3.3** Return one immutable, typed configuration object and validate all
+- [x] **3.3** Return one immutable, typed configuration object and validate all
   values once at startup. Other modules receive values; they never read files.
-- [ ] **3.4** Store the live configuration at
+- [x] **3.4** Store the live configuration at
   `%LOCALAPPDATA%\LocalFlow\config.ini`, using `LOCALFLOW_DATA_DIR` to isolate
   tests.
-- [ ] **3.5** On first run only, if no INI exists, import the legacy `HOTKEY` and
+- [x] **3.5** On first run only, if no INI exists, import the legacy `HOTKEY` and
   `AUTO_PASTE` values from `config.txt` beside the executable.
-- [ ] **3.6** Do **not** migrate legacy `CLEANUP=true`. It previously meant local
+- [x] **3.6** Do **not** migrate legacy `CLEANUP=true`. It previously meant local
   processing; carrying it forward would silently opt the user into transmitting
   transcripts to a cloud service. Always initialize new cloud cleanup to false.
-- [ ] **3.7** Write the migrated/default INI atomically and leave the old TXT file
+- [x] **3.7** Write the migrated/default INI atomically and leave the old TXT file
   untouched for rollback. Never merge or overwrite an existing INI.
-- [ ] **3.8** Add `--config-path` and `--check-config` commands and print the live
+- [x] **3.8** Add `--config-path` and `--check-config` commands and print the live
   path during ordinary startup.
-- [ ] **3.9** Reject unknown sections or keys, unknown providers, invalid
+- [x] **3.9** Reject unknown sections or keys, unknown providers, invalid
   booleans/timeouts, malformed hotkeys, and conflicting dictation and command
   bindings with actionable messages.
-- [ ] **3.10** Ensure installer upgrades never replace the user-data INI and stop
+- [x] **3.10** Ensure installer upgrades never replace the user-data INI and stop
   shipping a live configuration beside `LocalFlow.exe`.
-- [ ] **3.11** Test defaults, valid edits, invalid values, first-run creation,
+- [x] **3.11** Test defaults, valid edits, invalid values, first-run creation,
   legacy import, privacy-safe cleanup migration, existing-INI preservation, and
   installer upgrade behavior.
 
@@ -364,6 +364,27 @@ provider-specific environment variables.
 - Users can reliably locate and validate it.
 - Upgrading cannot silently enable cloud transmission.
 - API keys and arbitrary API endpoints cannot be placed in the INI.
+
+### Phase 3 verification result (2026-08-30)
+
+- The complete unit suite discovered 58 tests: 57 passed and 1 source-tree
+  real-audio fixture test skipped because that optional fixture is unavailable.
+- Configuration tests covered safe defaults, typed immutable values, valid
+  edits, malformed and unknown settings, provider/timeout/boolean/hotkey
+  validation, atomic first-run creation, legacy migration, and byte-for-byte
+  preservation of an existing INI.
+- The packaged fixed-audio smoke test produced the expected transcript in 2.242
+  seconds with a 263.7 MiB peak process-tree working set.
+- The ZIP contains `config.default.ini` but no `config.txt` or live `config.ini`.
+  The installed executable created and validated the sole live INI under an
+  isolated user-data directory.
+- The installer test migrated legacy `HOTKEY=f12` and `AUTO_PASTE=true`, forced
+  cloud cleanup to false despite legacy `CLEANUP=true`, and preserved both the
+  generated user-data INI and legacy TXT byte for byte during upgrade.
+- Rebuilt ZIP: 26,305,634 bytes (25.09 MiB), SHA-256
+  `e0c826d8a23697a1e61d9f3d9a23d587cf9ca9625532a08559c2f4db1d5efcb4`.
+- Rebuilt installer: 18,868,857 bytes (17.99 MiB), SHA-256
+  `573a4a9d876c269aef05e03a038a6826586b97aaffb940bac93d3b92d3cb4a21`.
 
 ---
 

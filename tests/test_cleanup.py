@@ -168,7 +168,7 @@ class CleanupApplicationTest(unittest.TestCase):
         app = Application(
             FakeTranscriber(),
             Pipeline({JobPurpose.DICTATION: CloudCleanup(client, shutdown)}),
-            "f23",
+            {JobPurpose.DICTATION: "f23"},
             auto_paste,
             publisher=publisher,
             shutdown_event=shutdown,
@@ -203,7 +203,7 @@ class CleanupApplicationTest(unittest.TestCase):
         app = Application(
             FakeTranscriber(),
             Pipeline({JobPurpose.DICTATION: raw_dictation}),
-            "f23",
+            {JobPurpose.DICTATION: "f23"},
             False,
             publisher=publisher,
             shutdown_event=shutdown,

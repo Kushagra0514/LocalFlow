@@ -160,6 +160,11 @@ class ConfigTest(unittest.TestCase):
         mutations = (
             lambda parser: parser["hotkeys"].__setitem__("dictation", "ctrl+space+shift"),
             lambda parser: parser["hotkeys"].__setitem__("command", "f23"),
+            lambda parser: parser["hotkeys"].__setitem__("command", "ctrl+f23"),
+            lambda parser: (
+                parser["hotkeys"].__setitem__("dictation", "ctrl"),
+                parser["hotkeys"].__setitem__("command", "ctrl+shift+."),
+            ),
         )
         for mutate in mutations:
             with self.subTest(mutate=mutate):

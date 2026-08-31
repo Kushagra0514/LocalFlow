@@ -518,23 +518,23 @@ provider-specific environment variables.
 
 ### Steps
 
-- [ ] **6.1** Generalize hotkey bindings so each binding carries a fixed job
+- [x] **6.1** Generalize hotkey bindings so each binding carries a fixed job
   purpose instead of calling dictation-specific callbacks.
-- [ ] **6.2** Register the dictation hotkey for `DICTATION` and the command
+- [x] **6.2** Register the dictation hotkey for `DICTATION` and the command
   hotkey for `COMMAND` using the same parser and recorder.
-- [ ] **6.3** Require different trigger keys in the first release so one shortcut
+- [x] **6.3** Require different trigger keys in the first release so one shortcut
   cannot be a modifier-extended version of the other.
-- [ ] **6.4** Capture the job purpose when recording starts and pass it unchanged
+- [x] **6.4** Capture the job purpose when recording starts and pass it unchanged
   with the audio to the single processing worker.
-- [ ] **6.5** Ignore the other hotkey while recording or processing, and ensure
+- [x] **6.5** Ignore the other hotkey while recording or processing, and ensure
   releasing it cannot stop or reroute the active recording.
-- [ ] **6.6** Register command mode only when it is enabled and valid provider
+- [x] **6.6** Register command mode only when it is enabled and valid provider
   credentials are available. Local dictation must remain available otherwise.
-- [ ] **6.7** Transcribe command audio locally with the same English Whisper path,
+- [x] **6.7** Transcribe command audio locally with the same English Whisper path,
   skip cleanup, and make exactly one provider interpretation request.
-- [ ] **6.8** Initially connect command mode to a fake/no-action handler before
+- [x] **6.8** Initially connect command mode to a fake/no-action handler before
   allowing real application side effects.
-- [ ] **6.9** Test single keys, combinations, repeats, early modifier release,
+- [x] **6.9** Test single keys, combinations, repeats, early modifier release,
   collisions, simultaneous bindings, mode preservation, one-job-at-a-time
   behavior, and shutdown after a delayed provider response.
 
@@ -544,6 +544,32 @@ provider-specific environment variables.
 - Normal dictation and command recordings cannot overlap or reroute each other.
 - Command mode can be tested without opening a real application.
 - No command transcript is cleaned, copied, or pasted on a successful command.
+
+### Completion record
+
+- Completed on 2026-08-30. One recorder now owns a purpose-tagged binding map;
+  it captures the selected purpose only after the application accepts the
+  recording and ignores every other binding until the active binding is
+  released.
+- Configuration rejects shared trigger scan codes and bindings where either
+  trigger is a required modifier of the other. Command registration requires
+  both explicit enablement and usable provider credentials; its absence never
+  removes the dictation binding.
+- The Phase 6 command handler makes one provider-neutral interpretation request
+  with no tool definitions and exposes no launcher or other side-effect path.
+  Success produces no clipboard or paste output. Failure copies the raw command
+  for recovery while explicitly forbidding automatic paste.
+- Final unit result: 97 tests discovered, 96 passed, and 1 fixed-audio source
+  test skipped because its source-tree native/model fixtures were unavailable.
+- The rebuilt isolated package smoke test transcribed the fixed 11-second JFK
+  sample in 2.152 seconds with a 266.5 MiB peak complete-process-tree working
+  set. Package content/removal checks passed.
+- Silent installer install, precise obsolete-file cleanup, config-preserving
+  upgrade, launch, and uninstall checks passed.
+- Rebuilt ZIP: 26,322,194 bytes (25.10 MiB), SHA-256
+  `67191bc40072581bf3b86419e03238fb4d4c809da0d087a2a36b2409f5252b2b`.
+- Rebuilt installer: 18,887,937 bytes (18.01 MiB), SHA-256
+  `cc1e2603152648d845156cd04c44a227ec0e118cbe98bcf312a067c0db318722`.
 
 ---
 

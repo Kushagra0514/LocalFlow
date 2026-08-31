@@ -22,7 +22,7 @@ class OutputPublisher:
         self.paste = paste
         self.delay = delay
 
-    def publish(self, text: str) -> bool:
+    def publish(self, text: str, allow_auto_paste: bool = True) -> bool:
         try:
             with self.side_effect_lock:
                 if self.shutdown_event.is_set():
@@ -33,7 +33,7 @@ class OutputPublisher:
             print(f"Clipboard error: could not copy the result: {error}")
             return False
 
-        if not self.auto_paste:
+        if not self.auto_paste or not allow_auto_paste:
             return True
         self.delay(0.1)
         try:
@@ -45,4 +45,3 @@ class OutputPublisher:
         except Exception as error:
             print(f"Automatic paste error: {error}. The result remains on the clipboard.")
         return True
-

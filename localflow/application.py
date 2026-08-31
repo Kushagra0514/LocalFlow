@@ -1,6 +1,7 @@
 import os
 import threading
 import time
+from collections.abc import Mapping
 
 from localflow.output import OutputPublisher
 from localflow.recording import Recorder
@@ -13,7 +14,7 @@ class Application:
         self,
         transcriber,
         pipeline,
-        hotkey: str,
+        hotkeys: Mapping[JobPurpose, str],
         auto_paste: bool,
         publisher=None,
         thread_factory=threading.Thread,
@@ -30,7 +31,7 @@ class Application:
             auto_paste, self.shutdown_event, self.lock
         )
         self.recorder = Recorder(
-            hotkey,
+            hotkeys,
             self._claim_recording,
             self._accept_recording,
             self._discard_recording,
@@ -98,10 +99,12 @@ class Application:
             result = self.pipeline.handle(recording.purpose, raw_text)
             if self.shutdown_event.is_set():
                 return
+            if not result.copy_to_clipboard:
+                return
             print("-" * 20)
             print(result.text)
             print("-" * 20)
-            self.publisher.publish(result.text)
+            self.publisher.publish(result.text, result.allow_auto_paste)
         except Exception as error:
             print(f"Transcription error: {error}")
         finally:
@@ -118,9 +121,16 @@ class Application:
             self.print_ready()
 
     def print_ready(self):
+        bindings = self._binding_summary()
         print(
-            f"\nReady! Hold [{self.recorder.hotkey.upper()}] to record. "
+            f"\nReady! Hold {bindings} to record. "
             "(Press Ctrl+C to exit)"
+        )
+
+    def _binding_summary(self):
+        return " or ".join(
+            f"{purpose.value} [{hotkey.upper()}]"
+            for purpose, hotkey in self.recorder.hotkeys.items()
         )
 
     def prepare(self):
@@ -148,7 +158,7 @@ class Application:
             return 1
 
         print(
-            f"\nReady! Hold [{self.recorder.hotkey.upper()}] to record, "
+            f"\nReady! Hold {self._binding_summary()} to record, "
             "release to transcribe."
         )
         print("Press Ctrl+C in this terminal to safely exit.")

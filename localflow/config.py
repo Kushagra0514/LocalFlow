@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from localflow.cloud import PROVIDERS
-from localflow.recording import parse_hotkey
+from localflow.recording import bindings_conflict, parse_binding
+from localflow.types import JobPurpose
 
 LIVE_CONFIG_FILENAME = "config.ini"
 SCHEMA = {
@@ -86,17 +87,24 @@ def _boolean(parser, section: str, key: str, path: Path) -> bool:
 def validate_config(parser: configparser.ConfigParser, path: Path) -> AppConfig:
     _validate_shape(parser, path)
     try:
-        dictation = parse_hotkey(parser["hotkeys"]["dictation"])[0]
+        dictation_binding = parse_binding(
+            JobPurpose.DICTATION, parser["hotkeys"]["dictation"]
+        )
     except ValueError as error:
         raise ValueError(f"Invalid [hotkeys] dictation in {path}: {error}") from error
     try:
-        command = parse_hotkey(parser["hotkeys"]["command"])[0]
+        command_binding = parse_binding(
+            JobPurpose.COMMAND, parser["hotkeys"]["command"]
+        )
     except ValueError as error:
         raise ValueError(f"Invalid [hotkeys] command in {path}: {error}") from error
-    if dictation == command:
+    if bindings_conflict(dictation_binding, command_binding):
         raise ValueError(
-            f"[hotkeys] dictation and command in {path} must use different bindings."
+            f"[hotkeys] dictation and command in {path} must use different "
+            "trigger keys; neither trigger can be a required modifier of the other."
         )
+    dictation = dictation_binding.hotkey
+    command = command_binding.hotkey
 
     provider = parser["ai"]["provider"].strip().lower()
     if provider not in PROVIDERS:

@@ -31,6 +31,11 @@ class OutputPublisherTest(unittest.TestCase):
         self.copy.assert_called_once_with("raw")
         self.paste.assert_called_once_with()
 
+    def test_handler_can_forbid_paste_while_still_copying(self):
+        self.publisher(auto_paste=True).publish("raw", allow_auto_paste=False)
+        self.copy.assert_called_once_with("raw")
+        self.paste.assert_not_called()
+
     def test_clipboard_failure_is_reported(self):
         publisher = self.publisher()
         self.copy.side_effect = RuntimeError("clipboard busy")
@@ -55,4 +60,3 @@ class OutputPublisherTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

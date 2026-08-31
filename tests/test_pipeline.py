@@ -1,7 +1,7 @@
 import unittest
 
 from localflow.pipeline import Pipeline, raw_dictation
-from localflow.types import JobPurpose
+from localflow.types import HandlerResult, JobPurpose
 
 
 class PipelineTest(unittest.TestCase):
@@ -19,7 +19,18 @@ class PipelineTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No transcript handler"):
             pipeline.handle(JobPurpose.COMMAND, "open chrome")
 
+    def test_handler_controls_copy_and_paste_policy(self):
+        pipeline = Pipeline(
+            {
+                JobPurpose.COMMAND: lambda _text: HandlerResult(
+                    "recovery", True, False
+                )
+            }
+        )
+        result = pipeline.handle(JobPurpose.COMMAND, "raw")
+        self.assertTrue(result.copy_to_clipboard)
+        self.assertFalse(result.allow_auto_paste)
+
 
 if __name__ == "__main__":
     unittest.main()
-

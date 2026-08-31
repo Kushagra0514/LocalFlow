@@ -6,6 +6,7 @@ from pathlib import Path
 from localflow import APP_VERSION
 from localflow.application import Application
 from localflow.cleanup import build_cleanup_handler
+from localflow.commands import build_command_handler
 from localflow.config import LIVE_CONFIG_FILENAME, load_config
 from localflow.pipeline import Pipeline
 from localflow.types import JobPurpose
@@ -51,11 +52,23 @@ def build_application(enable_cloud=True):
         config.ai.timeout_seconds,
         shutdown_event,
     )
-    pipeline = Pipeline({JobPurpose.DICTATION: dictation_handler})
+    handlers = {JobPurpose.DICTATION: dictation_handler}
+    hotkeys = {JobPurpose.DICTATION: config.hotkeys.dictation}
+    command_handler = build_command_handler(
+        config.commands_enabled and enable_cloud,
+        config.ai.provider,
+        config.ai.model,
+        config.ai.timeout_seconds,
+        shutdown_event,
+    )
+    if command_handler is not None:
+        handlers[JobPurpose.COMMAND] = command_handler
+        hotkeys[JobPurpose.COMMAND] = config.hotkeys.command
+    pipeline = Pipeline(handlers)
     return Application(
         transcriber,
         pipeline,
-        hotkey=config.hotkeys.dictation,
+        hotkeys=hotkeys,
         auto_paste=config.auto_paste,
         shutdown_event=shutdown_event,
     ), data_dir / "models", config

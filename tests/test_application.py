@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 
 import main
-from localflow import cleanup, cloud
+from localflow import cleanup, cloud, commands
 from localflow.application import Application
 from localflow.pipeline import Pipeline, raw_dictation
 from localflow.types import ApplicationState, JobPurpose, Recording
@@ -36,7 +36,7 @@ class ApplicationTest(unittest.TestCase):
         return Application(
             transcriber or FakeTranscriber(),
             Pipeline({JobPurpose.DICTATION: raw_dictation}),
-            "f23",
+            {JobPurpose.DICTATION: "f23"},
             False,
             publisher=publisher,
             thread_factory=thread_factory or MagicMock(),
@@ -60,7 +60,7 @@ class ApplicationTest(unittest.TestCase):
             Recording(JobPurpose.DICTATION, np.ones(10, dtype=np.float32))
         )
         with patch("sys.stdout", new_callable=StringIO) as output:
-            self.assertFalse(app._claim_recording(JobPurpose.DICTATION))
+            self.assertFalse(app._claim_recording(JobPurpose.COMMAND))
         self.assertIs(app.state, ApplicationState.PROCESSING)
         worker.start.assert_called_once_with()
         self.assertIn("Still processing", output.getvalue())
@@ -81,13 +81,19 @@ class ApplicationTest(unittest.TestCase):
         transcriber = FakeTranscriber("raw")
         publisher = MagicMock()
         pipeline = Pipeline({JobPurpose.DICTATION: lambda text: text.upper()})
-        app = Application(transcriber, pipeline, "f23", False, publisher=publisher)
+        app = Application(
+            transcriber,
+            pipeline,
+            {JobPurpose.DICTATION: "f23"},
+            False,
+            publisher=publisher,
+        )
         app.state = ApplicationState.PROCESSING
         with patch("sys.stdout", new_callable=StringIO):
             app._process_recording(
                 Recording(JobPurpose.DICTATION, np.ones(1, dtype=np.float32))
             )
-        publisher.publish.assert_called_once_with("RAW")
+        publisher.publish.assert_called_once_with("RAW", True)
         self.assertIs(app.state, ApplicationState.READY)
 
     def test_transcription_failure_returns_to_ready(self):
@@ -118,7 +124,7 @@ class ApplicationTest(unittest.TestCase):
         app = self.app()
         app.recorder.stream_factory = MagicMock(side_effect=OSError("no input device"))
         with patch("sys.stdout", new_callable=StringIO):
-            app.recorder.start()
+            app.recorder.start(JobPurpose.DICTATION)
         self.assertIs(app.state, ApplicationState.READY)
 
     def test_shutdown_prevents_output_side_effect(self):
@@ -198,13 +204,85 @@ class BootstrapTest(unittest.TestCase):
                     ),
                 ),
                 patch.object(cleanup, "create_client") as create_client,
+                patch.object(commands, "create_client") as command_client,
                 patch.object(cloud.urllib.request, "urlopen") as urlopen,
             ):
                 _, _, config = main.build_application()
         self.assertFalse(config.cleanup_enabled)
         self.assertFalse(config.commands_enabled)
         create_client.assert_not_called()
+        command_client.assert_not_called()
         urlopen.assert_not_called()
+
+    def test_enabled_command_with_credentials_registers_command_binding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory)
+            defaults = (
+                Path(main.__file__).resolve().parent / "config.default.ini"
+            ).read_text(encoding="utf-8")
+            (data_dir / "config.ini").write_text(
+                defaults.replace(
+                    "[commands]\nenabled = false", "[commands]\nenabled = true"
+                ),
+                encoding="utf-8",
+            )
+            client = MagicMock()
+            with (
+                patch.object(
+                    main,
+                    "application_paths",
+                    return_value=(
+                        Path(main.__file__).resolve().parent,
+                        Path("runtime"),
+                        data_dir,
+                    ),
+                ),
+                patch.object(commands, "create_client", return_value=client),
+                patch("sys.stdout", new_callable=StringIO),
+            ):
+                application, _, config = main.build_application()
+        self.assertTrue(config.commands_enabled)
+        self.assertIn(JobPurpose.COMMAND, application.pipeline.handlers)
+        self.assertEqual(
+            application.recorder.hotkeys[JobPurpose.COMMAND],
+            config.hotkeys.command,
+        )
+
+    def test_missing_command_credentials_leaves_dictation_available(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory)
+            defaults = (
+                Path(main.__file__).resolve().parent / "config.default.ini"
+            ).read_text(encoding="utf-8")
+            (data_dir / "config.ini").write_text(
+                defaults.replace(
+                    "[commands]\nenabled = false", "[commands]\nenabled = true"
+                ),
+                encoding="utf-8",
+            )
+            with (
+                patch.object(
+                    main,
+                    "application_paths",
+                    return_value=(
+                        Path(main.__file__).resolve().parent,
+                        Path("runtime"),
+                        data_dir,
+                    ),
+                ),
+                patch.object(
+                    commands,
+                    "create_client",
+                    side_effect=cloud.CloudError(
+                        cloud.CloudErrorKind.CREDENTIALS, "private"
+                    ),
+                ),
+                patch("sys.stdout", new_callable=StringIO),
+            ):
+                application, _, _ = main.build_application()
+        self.assertIn(JobPurpose.DICTATION, application.pipeline.handlers)
+        self.assertNotIn(JobPurpose.COMMAND, application.pipeline.handlers)
+        self.assertNotIn(JobPurpose.COMMAND, application.recorder.hotkeys)
 
     def test_frozen_double_click_keeps_startup_error_visible(self):
         with (

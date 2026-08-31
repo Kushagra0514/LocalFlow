@@ -27,4 +27,12 @@ class TranscriptResult:
     purpose: JobPurpose
     raw_text: str
     text: str
+    copy_to_clipboard: bool = True
+    allow_auto_paste: bool = True
 
+
+@dataclass(frozen=True)
+class HandlerResult:
+    text: str
+    copy_to_clipboard: bool = True
+    allow_auto_paste: bool = True

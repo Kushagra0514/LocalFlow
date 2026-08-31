@@ -4,7 +4,9 @@ LocalFlow is a local-first, CPU-first push-to-talk dictation tool for 64-bit
 Windows. It transcribes English locally with whisper.cpp and copies the result
 to the clipboard. The default configuration requires no cloud service, account,
 API key, or dedicated GPU. Optional transcript cleanup can use a user-provided
-Groq API key.
+Groq API key. An optional, separate command hotkey can also send a locally
+transcribed command to Groq for interpretation. Command mode is currently a
+safe no-action preview and cannot open applications yet.
 
 ## Supported hardware
 
@@ -100,9 +102,10 @@ model = openai/gpt-oss-20b
 timeout_seconds = 15
 ```
 
-The `dictation` and `command` hotkeys must be different. Each accepts a single
-key or a modifier combination. For combinations, list every modifier first and
-one ordinary trigger key last:
+The `dictation` and `command` hotkeys must use different trigger keys; neither
+trigger may be a required modifier of the other. Each accepts a single key or
+a modifier combination. For combinations, list every modifier first and one
+ordinary trigger key last:
 
 ```ini
 dictation = f23
@@ -118,7 +121,7 @@ while Ctrl and Shift are held. Releasing Space, or releasing a required
 modifier early, stops the recording. Choose a combination that does not
 conflict with shortcuts in your other applications.
 
-Every successful result is copied to the clipboard. With the safer default
+Every successful dictation result is copied to the clipboard. With the safer default
 `auto_paste = false`, LocalFlow never sends a paste keystroke. With
 `auto_paste = true`, it sends `Ctrl+V` to whichever application has focus when
 processing finishes. That may not be the application that was focused when
@@ -145,6 +148,16 @@ removal, and clear recognition corrections without changing meaning, names, or
 numbers. If the key is missing or any cleanup request fails, LocalFlow reports
 the category of failure and copies the successful raw Whisper transcript.
 
+Command mode is independently opt-in. After setting `GROQ_API_KEY`, set
+`commands.enabled = true` and restart LocalFlow. Holding the command hotkey
+records audio through the same bounded recorder and transcribes it locally with
+Whisper. That transcript skips cleanup and is sent to Groq in exactly one
+interpretation request. For this phase, LocalFlow only reports that the command
+was interpreted: it cannot launch anything and a successful command is neither
+copied nor pasted. If interpretation fails, the raw command is copied for
+recovery but is never automatically pasted. If the key is unavailable, the
+command hotkey is not registered and ordinary local dictation continues.
+
 ## Privacy and network behavior
 
 - The only required external network activity is the first-run download of the
@@ -153,6 +166,9 @@ the category of failure and copies the successful raw Whisper transcript.
   network request while cleanup remains disabled.
 - When cloud cleanup is explicitly enabled, LocalFlow sends the transcript text
   to the configured Groq model. It never sends microphone audio to Groq.
+- When command mode is explicitly enabled, LocalFlow sends the locally
+  transcribed command text to Groq once for interpretation. It never sends the
+  recorded audio, and the current no-action handler cannot launch anything.
 - Recorded audio is written to a temporary WAV file for whisper.cpp and removed
   immediately after that transcription attempt.
 - LocalFlow does not create transcript history or log files. The text being
@@ -216,6 +232,11 @@ command bindings differ. Try `f12` to rule out a shortcut conflict.
 Windows user, restart LocalFlow, and check that the configured Groq model is
 available to your account. LocalFlow continues with raw local transcripts while
 cleanup is unavailable.
+
+**The command hotkey is not shown.** Command mode is registered only when
+`commands.enabled = true` and `GROQ_API_KEY` is available to the LocalFlow
+process. Restart LocalFlow after changing either one. Application launching is
+not implemented in the current no-action command phase.
 
 **LocalFlow says `Still processing`.** Wait for the next `Ready!` message.
 Overlapping recordings are intentionally blocked.

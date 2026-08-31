@@ -1,5 +1,6 @@
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 
 import keyboard
 import numpy as np
@@ -38,14 +39,36 @@ def parse_hotkey(hotkey: str, keyboard_module=keyboard):
     return "+".join(parts), code_groups[:-1], code_groups[-1]
 
 
+@dataclass(frozen=True)
+class HotkeyBinding:
+    purpose: JobPurpose
+    hotkey: str
+    modifier_codes: tuple[frozenset[int], ...]
+    trigger_codes: frozenset[int]
+
+
+def parse_binding(purpose: JobPurpose, hotkey: str, keyboard_module=keyboard):
+    normalized, modifier_codes, trigger_codes = parse_hotkey(
+        hotkey, keyboard_module
+    )
+    return HotkeyBinding(purpose, normalized, modifier_codes, trigger_codes)
+
+
+def bindings_conflict(first: HotkeyBinding, second: HotkeyBinding) -> bool:
+    if first.trigger_codes & second.trigger_codes:
+        return True
+    if any(first.trigger_codes & codes for codes in second.modifier_codes):
+        return True
+    return any(second.trigger_codes & codes for codes in first.modifier_codes)
+
+
 class Recorder:
     def __init__(
         self,
-        hotkey: str,
+        hotkeys: Mapping[JobPurpose, str],
         claim: Callable[[JobPurpose], bool],
         complete: Callable[[Recording], None],
         discard: Callable[[], None],
-        purpose: JobPurpose = JobPurpose.DICTATION,
         keyboard_module=keyboard,
         stream_factory=sd.InputStream,
         timer_factory=threading.Timer,
@@ -56,12 +79,17 @@ class Recorder:
         self.claim = claim
         self.complete = complete
         self.discard = discard
-        self.purpose = purpose
-        self.hotkey, self.modifier_codes, self.trigger_codes = parse_hotkey(
-            hotkey, keyboard_module
+        self.bindings = tuple(
+            parse_binding(purpose, hotkey, keyboard_module)
+            for purpose, hotkey in hotkeys.items()
         )
+        if not self.bindings:
+            raise ValueError("At least one hotkey binding is required.")
+        self.hotkeys = {
+            binding.purpose: binding.hotkey for binding in self.bindings
+        }
         self.pressed_codes = set()
-        self.hotkey_is_down = False
+        self.active_binding = None
         self.stream = None
         self.timer = None
         self.buffer = []
@@ -94,13 +122,13 @@ class Recorder:
         except Exception as error:
             print(f"Microphone error while closing the stream: {error}")
 
-    def start(self):
-        if not self.claim(self.purpose):
-            return
+    def start(self, purpose: JobPurpose) -> bool:
+        if not self.claim(purpose):
+            return False
         with self._lock:
             self.buffer.clear()
             self.recorded_samples = 0
-            self.active_purpose = self.purpose
+            self.active_purpose = purpose
 
         audio_stream = None
         try:
@@ -117,7 +145,7 @@ class Recorder:
                 self.active_purpose = None
             print(f"Microphone error: could not start recording: {error}")
             self.discard()
-            return
+            return False
 
         timer = self.timer_factory(MAX_RECORDING_SECONDS, self.on_timeout)
         timer.daemon = True
@@ -130,14 +158,15 @@ class Recorder:
                 accepted = False
         if not accepted:
             self.close_stream(audio_stream)
-            return
+            return False
         try:
             timer.start()
         except RuntimeError as error:
             print(f"Recording error: could not start the duration limit: {error}")
             self.stop()
-            return
+            return False
         print("\n[Recording started - speak now!]")
+        return True
 
     def on_timeout(self):
         self.stop(
@@ -183,21 +212,28 @@ class Recorder:
         if event.event_type == self.keyboard.KEY_DOWN:
             is_new_press = scan_code not in self.pressed_codes
             self.pressed_codes.add(scan_code)
-            if (
-                is_new_press
-                and not self.hotkey_is_down
-                and scan_code in self.trigger_codes
-                and all(codes & self.pressed_codes for codes in self.modifier_codes)
-            ):
-                self.hotkey_is_down = True
-                self.start()
+            if is_new_press and self.active_binding is None:
+                for binding in self.bindings:
+                    if (
+                        scan_code in binding.trigger_codes
+                        and all(
+                            codes & self.pressed_codes
+                            for codes in binding.modifier_codes
+                        )
+                    ):
+                        if self.start(binding.purpose):
+                            self.active_binding = binding
+                        break
         elif event.event_type == self.keyboard.KEY_UP:
             self.pressed_codes.discard(scan_code)
-            if self.hotkey_is_down and (
-                scan_code in self.trigger_codes
-                or not all(codes & self.pressed_codes for codes in self.modifier_codes)
+            binding = self.active_binding
+            if binding is not None and (
+                scan_code in binding.trigger_codes
+                or not all(
+                    codes & self.pressed_codes for codes in binding.modifier_codes
+                )
             ):
-                self.hotkey_is_down = False
+                self.active_binding = None
                 self.stop()
 
     def hook(self):
@@ -214,7 +250,7 @@ class Recorder:
             self.buffer.clear()
             self.recorded_samples = 0
             self.pressed_codes.clear()
-            self.hotkey_is_down = False
+            self.active_binding = None
         try:
             self.keyboard.unhook_all()
         except Exception as error:
@@ -222,4 +258,3 @@ class Recorder:
         if timer is not None:
             timer.cancel()
         self.close_stream(audio_stream)
-

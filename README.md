@@ -5,8 +5,7 @@ Windows. It transcribes English locally with whisper.cpp and copies the result
 to the clipboard. The default configuration requires no cloud service, account,
 API key, or dedicated GPU. Optional transcript cleanup can use a user-provided
 Groq API key. An optional, separate command hotkey can also send a locally
-transcribed command to Groq for interpretation. Command mode is currently a
-safe no-action preview and cannot open applications yet.
+transcribed command to Groq, which may select the allowlisted `open_app` tool.
 
 ## Supported hardware
 
@@ -152,11 +151,19 @@ Command mode is independently opt-in. After setting `GROQ_API_KEY`, set
 `commands.enabled = true` and restart LocalFlow. Holding the command hotkey
 records audio through the same bounded recorder and transcribes it locally with
 Whisper. That transcript skips cleanup and is sent to Groq in exactly one
-interpretation request. For this phase, LocalFlow only reports that the command
-was interpreted: it cannot launch anything and a successful command is neither
-copied nor pasted. If interpretation fails, the raw command is copied for
-recovery but is never automatically pasted. If the key is unavailable, the
-command hotkey is not registered and ordinary local dictation continues.
+interpretation request. Groq can select only `open_app` with an application
+name. LocalFlow validates that name, resolves it against a local catalogue, and
+opens only the resolved entry. A successful command is neither copied nor
+pasted. If interpretation, validation, lookup, or launching fails, the raw
+command is copied for recovery but is never automatically pasted. If the key
+is unavailable, the command hotkey is not registered and ordinary local
+dictation continues.
+
+The application catalogue is rebuilt at startup from current-user and
+all-users Start Menu shortcuts plus existing executable targets in Windows App
+Paths. Exact normalized names win; a partial name works only when it has one
+unambiguous match. LocalFlow never accepts a provider-supplied path, URL,
+argument list, or shell command. Restart LocalFlow after installing a new app.
 
 ## Privacy and network behavior
 
@@ -167,8 +174,9 @@ command hotkey is not registered and ordinary local dictation continues.
 - When cloud cleanup is explicitly enabled, LocalFlow sends the transcript text
   to the configured Groq model. It never sends microphone audio to Groq.
 - When command mode is explicitly enabled, LocalFlow sends the locally
-  transcribed command text to Groq once for interpretation. It never sends the
-  recorded audio, and the current no-action handler cannot launch anything.
+  transcribed command text and the fixed `open_app` schema to Groq once. It
+  never sends recorded audio, the local application catalogue, application
+  paths, or shortcut targets.
 - Recorded audio is written to a temporary WAV file for whisper.cpp and removed
   immediately after that transcription attempt.
 - LocalFlow does not create transcript history or log files. The text being
@@ -235,8 +243,12 @@ cleanup is unavailable.
 
 **The command hotkey is not shown.** Command mode is registered only when
 `commands.enabled = true` and `GROQ_API_KEY` is available to the LocalFlow
-process. Restart LocalFlow after changing either one. Application launching is
-not implemented in the current no-action command phase.
+process. Restart LocalFlow after changing either one.
+
+**A command reports that an application is missing or ambiguous.** Use the
+application's ordinary full Start Menu name. LocalFlow deliberately refuses to
+guess between multiple matches and does not accept paths. Restart it after
+installing a new application so the local catalogue is rebuilt.
 
 **LocalFlow says `Still processing`.** Wait for the next `Ready!` message.
 Overlapping recordings are intentionally blocked.

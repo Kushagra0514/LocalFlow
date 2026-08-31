@@ -577,36 +577,36 @@ provider-specific environment variables.
 
 ### Steps
 
-- [ ] **7.1** Define a small tool description containing a stable name,
+- [x] **7.1** Define a small tool description containing a stable name,
   description, JSON-compatible argument schema, validator, and handler.
-- [ ] **7.2** Build an explicit allowlisted registry. Do not scan the filesystem,
+- [x] **7.2** Build an explicit allowlisted registry. Do not scan the filesystem,
   import arbitrary modules, or execute model-provided code.
-- [ ] **7.3** Expose only `open_app` to Groq in the first release. A missing tool
+- [x] **7.3** Expose only `open_app` to Groq in the first release. A missing tool
   call means no action rather than a second executable tool.
-- [ ] **7.4** Accept exactly one tool call named `open_app` with exactly one
+- [x] **7.4** Accept exactly one tool call named `open_app` with exactly one
   non-empty string field named `app_name`.
-- [ ] **7.5** Apply a short length limit and reject control characters, paths,
+- [x] **7.5** Apply a short length limit and reject control characters, paths,
   URLs, extra properties, multiple calls, unknown tools, and malformed JSON.
-- [ ] **7.6** Build a local application catalogue from current-user/all-users
+- [x] **7.6** Build a local application catalogue from current-user/all-users
   Start Menu `.lnk` files and trusted Windows App Paths registry entries.
-- [ ] **7.7** Keep only existing trusted shortcut or absolute executable targets,
+- [x] **7.7** Keep only existing trusted shortcut or absolute executable targets,
   normalize display names, executable stems, and duplicates locally, and never
   send the catalogue to the provider.
-- [ ] **7.8** Prefer exact normalized matches. Permit a partial match only when it
+- [x] **7.8** Prefer exact normalized matches. Permit a partial match only when it
   is unique and clearly report missing or ambiguous names instead of guessing.
-- [ ] **7.9** Launch only the resolved catalogue entry through `os.startfile()`.
+- [x] **7.9** Launch only the resolved catalogue entry through `os.startfile()`.
   Never use PowerShell, `cmd.exe`, `shell=True`, model-provided paths, executable
   arguments, `eval`, or `exec`.
-- [ ] **7.10** Check application shutdown immediately before dispatch and again
+- [x] **7.10** Check application shutdown immediately before dispatch and again
   inside the launcher boundary.
-- [ ] **7.11** On success, print a local status message and do not copy or paste
+- [x] **7.11** On success, print a local status message and do not copy or paste
   the spoken command. On any failure, launch nothing, copy the raw command, and
   never auto-paste it.
-- [ ] **7.12** Add adversarial tests for traversal, absolute paths, URLs, NUL and
+- [x] **7.12** Add adversarial tests for traversal, absolute paths, URLs, NUL and
   control characters, shell separators, unknown functions, extra arguments,
   multiple calls, prompt-injection text, missing apps, and ambiguous apps.
   Every rejection must assert that the launcher was not called.
-- [ ] **7.13** Manually verify Chrome, Notepad, one current-user application, an
+- [x] **7.13** Manually verify Chrome, Notepad, one current-user application, an
   absent application, and an ambiguous name on Windows.
 
 ### Exit criteria
@@ -616,6 +616,38 @@ provider-specific environment variables.
 - Users do not need to configure paths for ordinary Start Menu/App Paths apps.
 - Adding another tool requires a new module, tests, and one explicit registry
   entry—not changes to recording, Whisper, state, or cloud transport.
+
+### Completion record
+
+- Completed on 2026-08-30. The explicit built-in registry contains only
+  `open_app`; the command handler supplies only that schema and accepts at most
+  one normalized provider tool call.
+- `open_app` validates one `app_name` string with an 80-character limit and
+  rejects control characters, paths, URLs, executable/shortcut names, shell
+  separators, environment expansion, extra properties, unknown tools, and
+  malformed or multiple provider calls before its launcher boundary.
+- The local catalogue contained 203 entries on the development machine. It was
+  built only from existing current-user/all-users Start Menu `.lnk` files and
+  existing absolute `.exe` values from the current-user/machine App Paths
+  registry views. No catalogue name or target is added to the cloud request.
+- Manual Windows checks launched Chrome through App Paths, Notepad through App
+  Paths, and current-user Obsidian through its Start Menu shortcut. A definitely
+  absent name returned a clear local error. `Claude` was visible during the
+  check despite the resolver reporting ambiguity; an immediate instrumented
+  repeat recorded zero launcher calls, and a dedicated regression test now
+  proves ambiguous matches cannot cross the launcher boundary.
+- Final unit result: 110 tests discovered, 109 passed, and 1 fixed-audio source
+  test skipped because its source-tree native/model fixtures were unavailable.
+  Adversarial rejection tests assert that the launcher is never called.
+- The rebuilt isolated package smoke test transcribed the fixed 11-second JFK
+  sample in 2.142 seconds with a 264.5 MiB peak complete-process-tree working
+  set. Package content/removal checks passed.
+- Silent installer install, precise obsolete-file cleanup, config-preserving
+  upgrade, launch, and uninstall checks passed.
+- Rebuilt ZIP: 26,330,315 bytes (25.11 MiB), SHA-256
+  `3148370bce7bb56d27374771e9afe4d9b136d0d850701a4477ccb9ceba4db509`.
+- Rebuilt installer: 18,896,167 bytes (18.02 MiB), SHA-256
+  `2d231012a5e192abfb95053a40eafd4df9a29a9752966258db999fe4b8ad2e2f`.
 
 ---
 

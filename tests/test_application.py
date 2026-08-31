@@ -205,6 +205,7 @@ class BootstrapTest(unittest.TestCase):
                 ),
                 patch.object(cleanup, "create_client") as create_client,
                 patch.object(commands, "create_client") as command_client,
+                patch.object(commands, "build_builtin_registry") as registry,
                 patch.object(cloud.urllib.request, "urlopen") as urlopen,
             ):
                 _, _, config = main.build_application()
@@ -212,6 +213,7 @@ class BootstrapTest(unittest.TestCase):
         self.assertFalse(config.commands_enabled)
         create_client.assert_not_called()
         command_client.assert_not_called()
+        registry.assert_not_called()
         urlopen.assert_not_called()
 
     def test_enabled_command_with_credentials_registers_command_binding(self):
@@ -227,6 +229,7 @@ class BootstrapTest(unittest.TestCase):
                 encoding="utf-8",
             )
             client = MagicMock()
+            registry = MagicMock()
             with (
                 patch.object(
                     main,
@@ -238,11 +241,18 @@ class BootstrapTest(unittest.TestCase):
                     ),
                 ),
                 patch.object(commands, "create_client", return_value=client),
+                patch.object(
+                    commands, "build_builtin_registry", return_value=registry
+                ),
                 patch("sys.stdout", new_callable=StringIO),
             ):
                 application, _, config = main.build_application()
         self.assertTrue(config.commands_enabled)
         self.assertIn(JobPurpose.COMMAND, application.pipeline.handlers)
+        self.assertIs(
+            application.pipeline.handlers[JobPurpose.COMMAND].registry,
+            registry,
+        )
         self.assertEqual(
             application.recorder.hotkeys[JobPurpose.COMMAND],
             config.hotkeys.command,

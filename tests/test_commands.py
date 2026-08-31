@@ -11,19 +11,23 @@ from localflow.cloud import (
     CloudErrorKind,
     CompletionResponse,
     ToolCall,
+    ToolDefinition,
 )
 from localflow.commands import (
     COMMAND_SYSTEM_PROMPT,
-    NoActionCommand,
+    CommandHandler,
     build_command_handler,
 )
+from localflow.tools.open_app import OpenAppError
 from localflow.pipeline import Pipeline
 from localflow.types import ApplicationState, JobPurpose, Recording
 
 
 class FakeClient:
     def __init__(self, response=None, error=None, callback=None):
-        self.response = response or CompletionResponse("Open Google Chrome.", None)
+        self.response = response or CompletionResponse(
+            None, ToolCall("open_app", {"app_name": "Chrome"})
+        )
         self.error = error
         self.callback = callback
         self.requests = []
@@ -35,6 +39,23 @@ class FakeClient:
         if self.error:
             raise self.error
         return self.response
+
+
+class FakeRegistry:
+    definitions = (
+        ToolDefinition("open_app", "Open an app", {"type": "object"}),
+    )
+
+    def __init__(self, result="Chrome", error=None):
+        self.result = result
+        self.error = error
+        self.calls = []
+
+    def dispatch(self, call):
+        self.calls.append(call)
+        if self.error:
+            raise self.error
+        return self.result
 
 
 class FakeTranscriber:
@@ -85,33 +106,35 @@ class CommandHandlerTest(unittest.TestCase):
         self.assertIn("unavailable (credentials)", reports[0])
         self.assertNotIn("private", reports[0])
 
-    def test_success_makes_exactly_one_no_tool_request_and_has_no_output(self):
+    def test_success_makes_one_allowlisted_tool_request_and_has_no_output(self):
         client = FakeClient()
+        registry = FakeRegistry()
         reports = []
-        result = NoActionCommand(client, threading.Event(), reports.append)(
+        result = CommandHandler(client, registry, threading.Event(), reports.append)(
             "open chrome"
         )
         self.assertEqual(len(client.requests), 1)
         request = client.requests[0]
         self.assertEqual(request.messages[0].content, COMMAND_SYSTEM_PROMPT)
         self.assertEqual(request.messages[1].content, "open chrome")
-        self.assertFalse(request.tools)
+        self.assertEqual(request.tools, registry.definitions)
         self.assertFalse(request.require_tool)
+        self.assertEqual(len(registry.calls), 1)
         self.assertFalse(result.copy_to_clipboard)
         self.assertFalse(result.allow_auto_paste)
-        self.assertIn("no application actions", reports[0])
+        self.assertEqual(reports, ["Opened Chrome."])
 
     def test_failures_copy_raw_command_without_allowing_paste(self):
         clients = (
             FakeClient(error=CloudError(CloudErrorKind.TIMEOUT, "private body")),
             FakeClient(error=RuntimeError("private transcript")),
-            FakeClient(CompletionResponse("", None)),
-            FakeClient(CompletionResponse(None, ToolCall("unexpected", {}))),
         )
         for client in clients:
             reports = []
             with self.subTest(client=client):
-                result = NoActionCommand(client, threading.Event(), reports.append)(
+                result = CommandHandler(
+                    client, FakeRegistry(), threading.Event(), reports.append
+                )(
                     "raw private command"
                 )
                 self.assertEqual(result.text, "raw private command")
@@ -119,18 +142,44 @@ class CommandHandlerTest(unittest.TestCase):
                 self.assertFalse(result.allow_auto_paste)
                 self.assertNotIn("private", " ".join(reports))
 
+    def test_missing_tool_call_is_a_no_action_success(self):
+        registry = FakeRegistry()
+        handler = CommandHandler(
+            FakeClient(CompletionResponse("Not an app command.", None)),
+            registry,
+            threading.Event(),
+            MagicMock(),
+        )
+        result = handler("tell me a joke")
+        self.assertFalse(result.copy_to_clipboard)
+        self.assertFalse(registry.calls)
+
+    def test_validation_or_launch_failure_copies_raw_without_paste(self):
+        registry = FakeRegistry(error=OpenAppError("Application was not found."))
+        reports = []
+        result = CommandHandler(
+            FakeClient(), registry, threading.Event(), reports.append
+        )("open missing")
+        self.assertEqual(result.text, "open missing")
+        self.assertTrue(result.copy_to_clipboard)
+        self.assertFalse(result.allow_auto_paste)
+        self.assertIn("not found", reports[0])
+
     def test_shutdown_before_and_during_request_prevents_output(self):
         shutdown = threading.Event()
         shutdown.set()
         client = FakeClient()
-        result = NoActionCommand(client, shutdown)("raw")
+        registry = FakeRegistry()
+        result = CommandHandler(client, registry, shutdown)("raw")
         self.assertFalse(client.requests)
+        self.assertFalse(registry.calls)
         self.assertFalse(result.copy_to_clipboard)
 
         shutdown.clear()
         client = FakeClient(callback=shutdown.set)
-        result = NoActionCommand(client, shutdown)("raw")
+        result = CommandHandler(client, registry, shutdown)("raw")
         self.assertEqual(len(client.requests), 1)
+        self.assertFalse(registry.calls)
         self.assertFalse(result.copy_to_clipboard)
 
 
@@ -138,7 +187,9 @@ class CommandApplicationTest(unittest.TestCase):
     def test_command_uses_local_transcriber_once_and_success_has_no_output(self):
         transcriber = FakeTranscriber()
         client = FakeClient()
-        command = NoActionCommand(client, threading.Event(), MagicMock())
+        command = CommandHandler(
+            client, FakeRegistry(), threading.Event(), MagicMock()
+        )
         dictation = MagicMock(side_effect=AssertionError("cleanup called"))
         publisher = MagicMock()
         app = Application(
@@ -172,10 +223,11 @@ class CommandApplicationTest(unittest.TestCase):
             FakeTranscriber(),
             Pipeline(
                 {
-                    JobPurpose.COMMAND: NoActionCommand(
+                    JobPurpose.COMMAND: CommandHandler(
                         FakeClient(
                             error=CloudError(CloudErrorKind.SERVER, "private")
                         ),
+                        FakeRegistry(),
                         threading.Event(),
                         MagicMock(),
                     )

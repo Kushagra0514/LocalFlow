@@ -17,13 +17,14 @@ class Application:
         auto_paste: bool,
         publisher=None,
         thread_factory=threading.Thread,
+        shutdown_event=None,
     ):
         self.transcriber = transcriber
         self.pipeline = pipeline
         self.thread_factory = thread_factory
         self.state = ApplicationState.READY
         self.lock = threading.Lock()
-        self.shutdown_event = threading.Event()
+        self.shutdown_event = shutdown_event or threading.Event()
         self.worker = None
         self.publisher = publisher or OutputPublisher(
             auto_paste, self.shutdown_event, self.lock
@@ -95,6 +96,8 @@ class Application:
                 print("No speech detected.")
                 return
             result = self.pipeline.handle(recording.purpose, raw_text)
+            if self.shutdown_event.is_set():
+                return
             print("-" * 20)
             print(result.text)
             print("-" * 20)
@@ -133,7 +136,6 @@ class Application:
             f"Using local whisper.cpp base.en Q5 model with "
             f"{self.transcriber.threads} CPU threads."
         )
-        print("Raw Whisper transcripts will be used.")
         print(
             f"Automatic paste is "
             f"{'on' if self.publisher.auto_paste else 'off'}."

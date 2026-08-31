@@ -1,11 +1,13 @@
 import os
 import sys
+import threading
 from pathlib import Path
 
 from localflow import APP_VERSION
 from localflow.application import Application
+from localflow.cleanup import build_cleanup_handler
 from localflow.config import LIVE_CONFIG_FILENAME, load_config
-from localflow.pipeline import Pipeline, raw_dictation
+from localflow.pipeline import Pipeline
 from localflow.types import JobPurpose
 from localflow.whisper import WhisperTranscriber
 
@@ -29,7 +31,7 @@ def application_paths():
     return app_dir, runtime_dir, data_dir
 
 
-def build_application():
+def build_application(enable_cloud=True):
     app_dir, runtime_dir, data_dir = application_paths()
     config_path = data_dir / LIVE_CONFIG_FILENAME
     config = load_config(
@@ -41,12 +43,21 @@ def build_application():
         runtime_dir / "whisper" / "Release" / "whisper-cli.exe",
         data_dir / "models",
     )
-    pipeline = Pipeline({JobPurpose.DICTATION: raw_dictation})
+    shutdown_event = threading.Event()
+    dictation_handler = build_cleanup_handler(
+        config.cleanup_enabled and enable_cloud,
+        config.ai.provider,
+        config.ai.model,
+        config.ai.timeout_seconds,
+        shutdown_event,
+    )
+    pipeline = Pipeline({JobPurpose.DICTATION: dictation_handler})
     return Application(
         transcriber,
         pipeline,
         hotkey=config.hotkeys.dictation,
         auto_paste=config.auto_paste,
+        shutdown_event=shutdown_event,
     ), data_dir / "models", config
 
 
@@ -71,7 +82,7 @@ def main(argv=None):
         return 2
 
     try:
-        application, model_dir, config = build_application()
+        application, model_dir, config = build_application(enable_cloud=not argv)
         if argv == ["--check-config"]:
             print(f"Configuration is valid: {config.path}")
             return 0

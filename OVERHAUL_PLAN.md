@@ -458,26 +458,26 @@ provider-specific environment variables.
 
 ### Steps
 
-- [ ] **5.1** Add a dictation cleanup stage that is selected from typed config,
+- [x] **5.1** Add a dictation cleanup stage that is selected from typed config,
   not a global flag.
-- [ ] **5.2** With cleanup disabled, publish the raw Whisper transcript directly
+- [x] **5.2** With cleanup disabled, publish the raw Whisper transcript directly
   without reading an API key or constructing a provider.
-- [ ] **5.3** With cleanup enabled and credentials available, send only the raw
+- [x] **5.3** With cleanup enabled and credentials available, send only the raw
   transcript text with a tightly scoped cleanup prompt.
-- [ ] **5.4** Require the cleanup response to contain only corrected transcript
+- [x] **5.4** Require the cleanup response to contain only corrected transcript
   text while preserving meaning, names, numbers, and English wording.
-- [ ] **5.5** Treat an empty, malformed, oversized, or failed response as cleanup
+- [x] **5.5** Treat an empty, malformed, oversized, or failed response as cleanup
   failure and preserve the raw transcript.
-- [ ] **5.6** Check shutdown before the request, after the response, before
+- [x] **5.6** Check shutdown before the request, after the response, before
   clipboard copy, and before automatic paste.
-- [ ] **5.7** If credentials are missing, report cleanup as unavailable and use
+- [x] **5.7** If credentials are missing, report cleanup as unavailable and use
   raw text without preventing startup or future dictation.
-- [ ] **5.8** Avoid printing transcript contents or provider bodies in error
+- [x] **5.8** Avoid printing transcript contents or provider bodies in error
   messages. Clearly document any transcript text still shown in the console.
-- [ ] **5.9** Test the complete matrix of cleanup disabled/enabled, key
+- [x] **5.9** Test the complete matrix of cleanup disabled/enabled, key
   missing/present, success/failure, empty response, clipboard error, automatic
   paste, and shutdown during the request.
-- [ ] **5.10** Add an offline assertion proving cleanup-disabled dictation makes
+- [x] **5.10** Add an offline assertion proving cleanup-disabled dictation makes
   no external connection.
 
 ### Exit criteria
@@ -486,6 +486,31 @@ provider-specific environment variables.
 - `cleanup.enabled = true` sends transcript text, never audio.
 - Every cleanup failure returns the successful raw transcript.
 - Cloud cleanup adds no native model or runtime memory requirement.
+
+### Phase 5 verification result (2026-08-30)
+
+- The complete unit suite discovered 84 tests: 83 passed and 1 source-tree
+  real-audio fixture test skipped because that optional fixture is unavailable.
+- Cleanup tests covered config selection, disabled identity behavior, available
+  and missing credentials, successful correction, normalized and unexpected
+  failures, empty/whitespace output, malformed and oversized responses, and an
+  unexpected tool call. Every failure published the raw Whisper transcript.
+- The enabled request contained one feature-owned system prompt and the raw
+  transcript as the only user content; it contained no audio or tools.
+- Integrated tests covered clipboard success/failure, automatic paste on/off,
+  shutdown before/during cleanup, and the final pre-output shutdown guard.
+  Private marker text in provider errors was absent from console messages.
+- An explicit offline dictation test failed on any attempted cloud connection;
+  cleanup-disabled dictation copied the raw transcript and made no connection.
+- No dependency, model, or native runtime was added. The packaged fixed-audio
+  offline smoke test produced the expected transcript in 1.567 seconds with a
+  263.9 MiB peak process-tree working set.
+- Silent install, configuration-preserving upgrade, launch, and uninstall
+  passed with cleanup disabled by default.
+- Rebuilt ZIP: 26,318,289 bytes (25.10 MiB), SHA-256
+  `329980cb1d5bb7e81604dd95664d001312a7212bc73b080a3adccb2da3682775`.
+- Rebuilt installer: 18,887,604 bytes (18.01 MiB), SHA-256
+  `53dccd3dfb61ab7a335eea8a70adbc9a1b7aac93a9790c9c3cb00b569463f32e`.
 
 ---
 

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 
 import main
-from localflow import cloud
+from localflow import cleanup, cloud
 from localflow.application import Application
 from localflow.pipeline import Pipeline, raw_dictation
 from localflow.types import ApplicationState, JobPurpose, Recording
@@ -151,6 +151,39 @@ class ApplicationTest(unittest.TestCase):
 
 
 class BootstrapTest(unittest.TestCase):
+    def test_typed_cleanup_config_selects_cloud_handler(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory)
+            defaults = (Path(main.__file__).resolve().parent / "config.default.ini").read_text(
+                encoding="utf-8"
+            )
+            (data_dir / "config.ini").write_text(
+                defaults.replace("[cleanup]\nenabled = false", "[cleanup]\nenabled = true"),
+                encoding="utf-8",
+            )
+            client = MagicMock()
+            with (
+                patch.object(
+                    main,
+                    "application_paths",
+                    return_value=(
+                        Path(main.__file__).resolve().parent,
+                        Path("runtime"),
+                        data_dir,
+                    ),
+                ),
+                patch.object(cleanup, "create_client", return_value=client) as factory,
+                patch("sys.stdout", new_callable=StringIO),
+            ):
+                application, _, config = main.build_application()
+        self.assertTrue(config.cleanup_enabled)
+        factory.assert_called_once_with(
+            config.ai.provider, config.ai.model, config.ai.timeout_seconds
+        )
+        self.assertIs(
+            application.pipeline.handlers[JobPurpose.DICTATION].client, client
+        )
+
     def test_disabled_cloud_features_do_not_create_client_or_network_request(self):
         with tempfile.TemporaryDirectory() as directory:
             data_dir = Path(directory)
@@ -164,7 +197,7 @@ class BootstrapTest(unittest.TestCase):
                         data_dir,
                     ),
                 ),
-                patch.object(cloud, "create_client") as create_client,
+                patch.object(cleanup, "create_client") as create_client,
                 patch.object(cloud.urllib.request, "urlopen") as urlopen,
             ):
                 _, _, config = main.build_application()

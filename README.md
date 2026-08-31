@@ -1,9 +1,10 @@
 # LocalFlow
 
-LocalFlow is a fully local, CPU-first push-to-talk dictation tool for 64-bit
-Windows. It transcribes English with whisper.cpp and copies the raw transcript
-to the clipboard. It requires no cloud service, account, API key, or dedicated
-GPU.
+LocalFlow is a local-first, CPU-first push-to-talk dictation tool for 64-bit
+Windows. It transcribes English locally with whisper.cpp and copies the result
+to the clipboard. The default configuration requires no cloud service, account,
+API key, or dedicated GPU. Optional transcript cleanup can use a user-provided
+Groq API key.
 
 ## Supported hardware
 
@@ -129,17 +130,36 @@ rollback. A legacy `CLEANUP=true` is deliberately ignored and cloud cleanup is
 initialized to false, so an upgrade cannot silently enable transcript upload.
 API keys remain environment variables and cannot be stored in this INI.
 
+With `cleanup.enabled = false`, LocalFlow publishes the raw Whisper transcript
+and never reads an API key or contacts a cloud provider. To opt into cleanup,
+store a Groq key in the current Windows user's environment and then enable it:
+
+```powershell
+[Environment]::SetEnvironmentVariable("GROQ_API_KEY", "your-key", "User")
+```
+
+Restart LocalFlow after setting the variable, then set `cleanup.enabled = true`.
+Only transcript text is sent to Groq; recorded audio remains local. The cleanup
+request asks for English punctuation, capitalization, filler/false-start
+removal, and clear recognition corrections without changing meaning, names, or
+numbers. If the key is missing or any cleanup request fails, LocalFlow reports
+the category of failure and copies the successful raw Whisper transcript.
+
 ## Privacy and network behavior
 
 - The only required external network activity is the first-run download of the
   pinned Whisper model from its official Hugging Face repository.
 - Once that valid model is present, normal transcription makes no external
-  network request.
+  network request while cleanup remains disabled.
+- When cloud cleanup is explicitly enabled, LocalFlow sends the transcript text
+  to the configured Groq model. It never sends microphone audio to Groq.
 - Recorded audio is written to a temporary WAV file for whisper.cpp and removed
   immediately after that transcription attempt.
-- LocalFlow does not create transcript history or log files. The raw and final
-  text are shown in the terminal, and the final text remains on the Windows
-  clipboard until another application replaces it.
+- LocalFlow does not create transcript history or log files. The text being
+  published is shown in the terminal: cleaned text after successful cleanup or
+  the raw Whisper transcript after fallback. Provider error bodies and request
+  contents are not printed. The published text remains on the Windows clipboard
+  until another application replaces it.
 - Automatic paste is opt-in and targets the application focused when processing
   completes.
 
@@ -191,6 +211,11 @@ closer to the selected microphone, and check its input level in Windows.
 specific section and key. Unknown settings are rejected. For hotkeys, put
 modifiers first, use one non-modifier key last, and ensure the dictation and
 command bindings differ. Try `f12` to rule out a shortcut conflict.
+
+**Cloud cleanup is unavailable.** Confirm `GROQ_API_KEY` is set for the current
+Windows user, restart LocalFlow, and check that the configured Groq model is
+available to your account. LocalFlow continues with raw local transcripts while
+cleanup is unavailable.
 
 **LocalFlow says `Still processing`.** Wait for the next `Ready!` message.
 Overlapping recordings are intentionally blocked.

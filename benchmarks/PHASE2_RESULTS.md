@@ -1,5 +1,8 @@
 # Phase 2 whisper.cpp integration results
 
+> Historical v0.1 record. References to local S1/llama.cpp describe the retired
+> architecture and are not v0.2 performance claims.
+
 Date: 2026-08-28
 
 ## Outcome

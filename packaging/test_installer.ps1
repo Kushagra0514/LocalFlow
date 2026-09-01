@@ -12,6 +12,7 @@ if (-not $Installer) {
 $TestRoot = Join-Path $RepoRoot ".local\installer-test\$([Guid]::NewGuid())"
 $InstallRoot = Join-Path $TestRoot "LocalFlow"
 $DataRoot = Join-Path $TestRoot "data"
+$FreshDataRoot = Join-Path $TestRoot "fresh-data"
 $ExpectedPrefix = $RepoRoot + [IO.Path]::DirectorySeparatorChar + ".local" + [IO.Path]::DirectorySeparatorChar
 $OldDataDirectory = $env:LOCALFLOW_DATA_DIR
 
@@ -34,10 +35,21 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $InstallRoot "config.default.ini"))) {
         throw "Installer did not install config.default.ini"
     }
+    $Executable = Join-Path $InstallRoot "LocalFlow.exe"
+    $env:LOCALFLOW_DATA_DIR = $FreshDataRoot
+    & $Executable --check-config
+    if ($LASTEXITCODE -ne 0) {
+        throw "Fresh installation did not create a valid default config"
+    }
+    $FreshConfig = Join-Path $FreshDataRoot "config.ini"
+    $FreshContents = Get-Content -LiteralPath $FreshConfig -Raw
+    if ($FreshContents -notmatch "(?ms)^\[cleanup\]\r?\nenabled = false\r?$" -or
+        $FreshContents -notmatch "(?ms)^\[commands\]\r?\nenabled = false\r?$") {
+        throw "Fresh installation did not preserve safe cloud defaults"
+    }
     $LegacyConfig = Join-Path $InstallRoot "config.txt"
     $LegacyContents = "HOTKEY=f12`r`nAUTO_PASTE=true`r`nCLEANUP=true`r`n"
     Set-Content -LiteralPath $LegacyConfig -Value $LegacyContents -NoNewline
-    $Executable = Join-Path $InstallRoot "LocalFlow.exe"
     $env:LOCALFLOW_DATA_DIR = $DataRoot
     & $Executable --check-config
     if ($LASTEXITCODE -ne 0) {
@@ -95,7 +107,7 @@ try {
     }
     $ForbiddenFiles = Get-ChildItem -LiteralPath $InstallRoot -File -Recurse |
         Where-Object {
-            $_.Extension -ieq ".gguf" -or
+            $_.Extension -in @(".bin", ".gguf", ".part") -or
             $_.Name -match "(?i)llama|s1-mini|S1_MINI"
         }
     if ($ForbiddenFiles) {
@@ -105,6 +117,10 @@ try {
     & $Executable --version
     if ($LASTEXITCODE -ne 0) {
         throw "Installed LocalFlow.exe failed with exit code $LASTEXITCODE"
+    }
+    $ReportedConfig = & $Executable --config-path
+    if ($LASTEXITCODE -ne 0 -or $ReportedConfig.Trim() -ne $LiveConfig) {
+        throw "Installed LocalFlow.exe reported the wrong live config path"
     }
 
     $Uninstaller = Join-Path $InstallRoot "unins000.exe"

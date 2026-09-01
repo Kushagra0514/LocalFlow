@@ -16,6 +16,7 @@ SCHEMA = {
     "commands": frozenset({"enabled"}),
     "ai": frozenset({"provider", "model", "timeout_seconds"}),
 }
+OPTIONAL_SECTIONS = frozenset({"app_aliases"})
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class AppConfig:
     cleanup_enabled: bool
     commands_enabled: bool
     ai: AiConfig
+    app_aliases: tuple[tuple[str, str], ...]
 
 
 def _read_ini(path: Path) -> configparser.ConfigParser:
@@ -55,7 +57,7 @@ def _validate_shape(parser: configparser.ConfigParser, path: Path) -> None:
     if parser.defaults():
         keys = ", ".join(sorted(parser.defaults()))
         raise ValueError(f"Unknown keys in [DEFAULT] in {path}: {keys}")
-    unknown_sections = set(parser.sections()) - set(SCHEMA)
+    unknown_sections = set(parser.sections()) - set(SCHEMA) - OPTIONAL_SECTIONS
     if unknown_sections:
         names = ", ".join(sorted(unknown_sections))
         raise ValueError(f"Unknown configuration section(s) in {path}: {names}")
@@ -131,6 +133,9 @@ def validate_config(parser: configparser.ConfigParser, path: Path) -> AppConfig:
         cleanup_enabled=_boolean(parser, "cleanup", "enabled", path),
         commands_enabled=_boolean(parser, "commands", "enabled", path),
         ai=AiConfig(provider, model, timeout_seconds),
+        app_aliases=tuple(parser.items("app_aliases"))
+        if parser.has_section("app_aliases")
+        else (),
     )
 
 

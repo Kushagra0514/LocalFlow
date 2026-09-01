@@ -1,5 +1,7 @@
 # Phase 1 local inference results
 
+> Historical v0.1 record. This local S1/llama.cpp stack is not part of v0.2.
+
 Date: 2026-08-28
 
 ## Outcome

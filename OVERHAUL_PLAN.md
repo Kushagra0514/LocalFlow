@@ -651,38 +651,111 @@ provider-specific environment variables.
 
 ---
 
+## Phase 7A: Make application-name matching predictable
+
+### Steps
+
+- [x] **7A.1** Normalize both spoken application names and catalogue names with
+  Unicode normalization, whitespace trimming, and case-insensitive
+  `casefold()` comparison. Preserve the installed display name only for local
+  status and error messages.
+- [x] **7A.2** Apply one deterministic match order: user alias, exact normalized
+  name, exact executable stem, then unique partial name. Never let letter case
+  affect the result.
+- [x] **7A.3** Keep every distinct trusted target when duplicate or overlapping
+  display names are discovered instead of silently replacing one catalogue
+  entry with another.
+- [x] **7A.4** When a partial name matches multiple applications, launch nothing
+  and report the matching installed display names so the user can repeat a more
+  specific command.
+- [x] **7A.5** Add an optional `[app_aliases]` INI section mapping a short spoken
+  name to an installed application name, for example
+  `code = Visual Studio Code`. Alias values must never be paths, URLs,
+  executable arguments, or shell text.
+- [x] **7A.6** Resolve every alias through the same trusted local catalogue and
+  reject missing, ambiguous, recursive, duplicate, or unsafe alias mappings
+  without preventing local dictation from starting.
+- [x] **7A.7** Keep fuzzy similarity matching out of the launcher. A misspelling
+  or ambiguous request must produce a safe error rather than selecting the
+  closest application automatically.
+- [x] **7A.8** Add tests covering capitalization-only differences, Unicode and
+  repeated whitespace, exact names that overlap longer names, duplicate
+  catalogue entries, unique partial matches, ambiguous partial matches, valid
+  aliases, and rejected unsafe aliases. Every ambiguous or rejected case must
+  assert that the launcher was not called.
+- [x] **7A.9** Manually verify at least one capitalization mismatch, one alias,
+  one exact overlapping name, and one ambiguous name on Windows.
+
+### Exit criteria
+
+- Application-name matching is case-insensitive and deterministic.
+- Exact application names are not blocked merely because another installed
+  application contains the same words.
+- Users can resolve persistent naming conflicts with safe name-only aliases.
+- Ambiguous, missing, and unsafe names launch nothing and provide an actionable
+  local message.
+- Provider output still cannot supply an executable path, arguments, or shell
+  command.
+
+### Completion record
+
+- Completed on 2026-08-31. Names now use standard-library NFKC normalization,
+  whitespace normalization, and `casefold()` comparison while preserving the
+  catalogue display name for local messages.
+- Resolution order is user alias, exact installed display name, exact
+  executable stem, and unique partial name. Distinct trusted targets remain
+  separate, and ambiguous matches still cannot cross the launcher boundary.
+- The optional `[app_aliases]` section stores name-to-name mappings only. Each
+  target must resolve exactly through the trusted local catalogue; unsafe,
+  duplicate, recursive, missing, and ambiguous mappings are ignored with a
+  local status message and do not disable local dictation.
+- The complete unit suite discovered 120 tests: 119 passed and the fixed-audio
+  source test was skipped because its source-tree native/model fixtures were
+  unavailable. Rejection tests confirmed that no launcher call occurs.
+- Manual read-only verification used the 187-entry Windows catalogue:
+  `eXcEl` resolved to the installed display name `Excel`,
+  `browser = Google Chrome` resolved as an alias, exact `command prompt` won
+  over longer overlapping names, and `inno setup` reported five ambiguous
+  matches without launching an application.
+- Follow-up completed on 2026-09-01: Windows shortcut launch identities now
+  collapse equivalent duplicate Firefox and Claude entries while retaining the
+  five genuinely different PowerShell matches. Native shortcut inspection is
+  limited to duplicate-name groups; the real catalogue rebuilt in 0.304 seconds.
+
+---
+
 ## Phase 8: Finish packaging, migration, documentation, and release verification
 
 ### Steps
 
-- [ ] **8.1** Update package metadata and descriptions from “fully local” to
+- [x] **8.1** Update package metadata and descriptions from “fully local” to
   “local-first with optional cloud features,” while clearly preserving the
   fully local cleanup-off mode.
-- [ ] **8.2** Use one authoritative application version or add a test that fails
+- [x] **8.2** Use one authoritative application version or add a test that fails
   when `main`, `pyproject.toml`, the build manifest, and Inno Setup disagree.
-- [ ] **8.3** Set the overhaul release version to the selected `0.x.x` minor
+- [x] **8.3** Set the overhaul release version to the selected `0.x.x` minor
   release after all behavior is complete.
-- [ ] **8.4** Update README installation, configuration location, API-key setup,
+- [x] **8.4** Update README installation, configuration location, API-key setup,
   cleanup behavior, command hotkey, privacy boundary, fallback behavior,
   troubleshooting, uninstall, and stale S1-model cleanup instructions.
-- [ ] **8.5** Update third-party notices and generated dependency licenses to
+- [x] **8.5** Update third-party notices and generated dependency licenses to
   exactly match the new package contents.
-- [ ] **8.6** Keep historical v0.1 benchmark files as historical evidence, but
+- [x] **8.6** Keep historical v0.1 benchmark files as historical evidence, but
   ensure no current documentation presents S1/llama measurements as v0.2
   performance.
-- [ ] **8.7** Update the packaged smoke test to cover fixed-audio local
+- [x] **8.7** Update the packaged smoke test to cover fixed-audio local
   transcription with cleanup and commands disabled.
-- [ ] **8.8** Add a deterministic fake-provider end-to-end test covering fixed
+- [x] **8.8** Add a deterministic fake-provider end-to-end test covering fixed
   audio, cleanup success/fallback, command interpretation, validation, and a
   mocked launcher.
-- [ ] **8.9** Keep any real Groq smoke test opt-in, manual, and outside normal CI
+- [x] **8.9** Keep any real Groq smoke test opt-in, manual, and outside normal CI
   and packaging tests to avoid secrets, cost, and network flakiness.
-- [ ] **8.10** Assert ZIP and installed contents contain no llama.cpp, S1 model,
+- [x] **8.10** Assert ZIP and installed contents contain no llama.cpp, S1 model,
   `.gguf`, obsolete notices, test credentials, or partial downloads.
 - [ ] **8.11** Test fresh install, legacy-config upgrade, second upgrade with an
   existing INI, launch, configuration discovery, uninstall, and exact stale
   runtime removal on an isolated Windows account.
-- [ ] **8.12** Verify networking disabled: local dictation works; cleanup safely
+- [x] **8.12** Verify networking disabled: local dictation works; cleanup safely
   falls back; command mode launches nothing; the application returns to ready.
 - [ ] **8.13** Remeasure installer/ZIP size, complete-process-tree peak memory,
   cold/warm local transcription latency, and cloud round-trip latency. Publish
@@ -705,6 +778,36 @@ provider-specific environment variables.
   boundary without editing recording or Whisper.
 - The installer, portable package, documentation, tests, notices, version, and
   measurements all describe the same release.
+
+### Completion record
+
+- LocalFlow is version `0.2.0`; the existing release-consistency test now also
+  pins this selected release and verifies local-first package wording.
+- The complete unit suite discovered 125 tests: 124 passed and one source-tree
+  fixed-audio test skipped because its native/model fixtures were unavailable.
+  The packaged real-Whisper fixed-audio smoke test passed separately.
+- The deterministic fake-provider test covers raw local dictation, cleanup
+  success and connection fallback, valid command dispatch, unsafe tool-call
+  rejection, command connection failure, and a mocked launcher without an
+  external request.
+- Package and installer tests verify safe cloud defaults, the canonical
+  user-data INI, model-free artifacts, no partial downloads, no retired local
+  cleanup stack, and exact stale-file removal. The package also transcribed
+  successfully with an unusable HTTPS proxy and placeholder Groq key.
+- Fresh install, legacy migration, existing-INI upgrade, config-path discovery,
+  launch, and uninstall passed in isolated workspace directories. Step 8.11
+  remains open because this was not a separate clean Windows account.
+- Final ZIP: 26,337,822 bytes, SHA-256
+  `f2beb4c8bc5e7f1be137f71be94d23974b32e3910a914be29ca45412a6b915b1`.
+- Final installer: 18,901,317 bytes, SHA-256
+  `57cc22dfa2da0c3b4b13a46eccfc2533c0d748f730b01abfedf7068ac5b05b9e`.
+- Four final packaged runs measured 2.78 seconds for the first process,
+  2.49–2.74 seconds for repeats, and at most 265.8 MiB across the complete
+  process tree. Real Groq latency remains unmeasured because no billable request
+  was authorized, so Step 8.13 remains open.
+- The complete current-worktree matrix passed. Step 8.14 remains open until the
+  changes are committed and the same matrix is rerun from a clean checkout
+  before tagging.
 
 ## Deferred until a later release justifies them
 

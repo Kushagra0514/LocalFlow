@@ -3,7 +3,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from localflow.cloud import CloudError, ToolCall, _decode_response
 from localflow.tools import Tool, ToolRegistry
@@ -141,6 +141,147 @@ class AppCatalogueTest(unittest.TestCase):
         with self.assertRaisesRegex(OpenAppError, "not found"):
             catalogue.resolve("missing application")
 
+    def test_matching_ignores_case_unicode_width_and_repeated_whitespace(self):
+        catalogue = AppCatalogue((self.entry("Claude Desktop", "claude.exe"),))
+        for request in ("claude desktop", "CLAUDE DESKTOP", "  Ｃｌａｕｄｅ   Desktop "):
+            with self.subTest(request=request):
+                self.assertEqual(catalogue.resolve(request).display_name, "Claude Desktop")
+
+    def test_executable_stem_wins_before_partial_name(self):
+        catalogue = AppCatalogue(
+            (
+                AppEntry(
+                    "Google Chrome",
+                    Path("chrome.exe"),
+                    frozenset({"google chrome"}),
+                    frozenset({"chrome"}),
+                ),
+                self.entry("Chrome Beta", "chrome-beta.exe"),
+            )
+        )
+        self.assertEqual(catalogue.resolve("chrome").display_name, "Google Chrome")
+
+    def test_installed_display_name_wins_over_same_lowercase_executable_stem(self):
+        catalogue = AppCatalogue(
+            (
+                self.entry("Claude", "claude.lnk"),
+                AppEntry(
+                    "claude",
+                    Path("claude.exe"),
+                    frozenset(),
+                    frozenset({"claude"}),
+                ),
+            )
+        )
+        self.assertEqual(catalogue.resolve("claude").display_name, "Claude")
+
+    def test_distinct_targets_are_kept_when_discovery_names_overlap(self):
+        first = self.entry("Claude", "claude-user.lnk")
+        second = self.entry("Claude", "claude-machine.lnk")
+        catalogue = AppCatalogue.discover(
+            start_menu_roots=(), registry_entries=(first, second)
+        )
+        self.assertEqual(len(catalogue.entries), 2)
+        with self.assertRaisesRegex(OpenAppError, "2 distinct installed entries"):
+            catalogue.resolve("claude")
+
+    def test_equivalent_launch_identities_are_collapsed(self):
+        identity = ("target", r"c:\program files\firefox\firefox.exe", "")
+        first = AppEntry(
+            "Firefox",
+            Path("firefox-user.lnk"),
+            frozenset({"firefox"}),
+            launch_identity=identity,
+        )
+        second = AppEntry(
+            "Firefox",
+            Path("firefox-machine.lnk"),
+            frozenset({"firefox"}),
+            launch_identity=identity,
+        )
+        catalogue = AppCatalogue.discover(
+            start_menu_roots=(), registry_entries=(first, second)
+        )
+        self.assertEqual(len(catalogue.entries), 1)
+        self.assertEqual(catalogue.resolve("firefox").target, first.target)
+
+    def test_only_duplicate_shortcut_names_need_native_identity_reads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Folder").mkdir()
+            for relative in ("Firefox.lnk", "Folder/Firefox.lnk", "Unique.lnk"):
+                (root / relative).touch()
+            with patch(
+                "localflow.tools.open_app._read_windows_shortcut",
+                return_value=(r"C:\Program Files\Firefox\firefox.exe", "", ""),
+            ) as read_shortcut:
+                catalogue = AppCatalogue.discover((root,), registry_entries=[])
+        self.assertEqual(read_shortcut.call_count, 2)
+        self.assertEqual(catalogue.resolve("firefox").display_name, "Firefox")
+        self.assertEqual(catalogue.resolve("unique").display_name, "Unique")
+
+    def test_genuinely_different_overlapping_apps_remain_ambiguous(self):
+        catalogue = AppCatalogue(
+            (
+                self.entry("PowerShell 7 (x64)", "pwsh.exe"),
+                self.entry("Windows PowerShell", "powershell.exe"),
+                self.entry("Windows PowerShell ISE", "powershell_ise.exe"),
+            )
+        )
+        with self.assertRaisesRegex(
+            OpenAppError, "PowerShell 7.*Windows PowerShell"
+        ):
+            catalogue.resolve("powershell")
+
+    def test_user_alias_wins_and_resolves_only_to_an_exact_catalogue_entry(self):
+        catalogue = AppCatalogue(
+            (
+                self.entry("Code", "other-code.exe"),
+                self.entry("Visual Studio Code", "code.exe"),
+            ),
+            (("code", "Visual Studio Code"),),
+        )
+        self.assertEqual(catalogue.resolve("CODE").display_name, "Visual Studio Code")
+        self.assertFalse(catalogue.alias_errors)
+
+    def test_invalid_aliases_are_ignored_without_breaking_catalogue_matching(self):
+        catalogue = AppCatalogue(
+            (
+                self.entry("Google Chrome", "chrome.exe"),
+                self.entry("Visual Studio", "devenv.exe"),
+                self.entry("Visual Studio Code", "code.exe"),
+            ),
+            (
+                ("browser", r"C:\\Program Files\\Chrome\\chrome.exe"),
+                ("same", "same"),
+                ("editor", "visual studio"),
+                ("ＥＤＩＴＯＲ", "Visual Studio Code"),
+                ("missing", "Absent Application"),
+            ),
+        )
+        self.assertEqual(catalogue.resolve("google chrome").display_name, "Google Chrome")
+        self.assertGreaterEqual(len(catalogue.alias_errors), 4)
+        for request in ("browser", "same", "editor", "missing"):
+            with self.subTest(request=request):
+                with self.assertRaises(OpenAppError):
+                    catalogue.resolve(request)
+
+    def test_ambiguous_alias_target_is_rejected_and_never_launched(self):
+        start = MagicMock()
+        catalogue = AppCatalogue(
+            (
+                self.entry("Claude", "claude-user.lnk"),
+                self.entry("Claude", "claude-machine.lnk"),
+            ),
+            (("assistant", "Claude"),),
+        )
+        self.assertTrue(catalogue.alias_errors)
+        with self.assertRaises(OpenAppError):
+            OpenApp(catalogue, threading.Event(), start=start)(
+                OpenAppRequest("assistant")
+            )
+        start.assert_not_called()
+
     def test_prompt_injection_name_cannot_become_a_target(self):
         start = MagicMock()
         tool = OpenApp(
@@ -160,7 +301,7 @@ class AppCatalogueTest(unittest.TestCase):
                 self.entry("Claude", "claude-folder.lnk"),
             )
         )
-        with self.assertRaisesRegex(OpenAppError, "ambiguous"):
+        with self.assertRaisesRegex(OpenAppError, "2 distinct installed entries"):
             OpenApp(catalogue, threading.Event(), start=start)(
                 OpenAppRequest("Claude")
             )
@@ -172,7 +313,8 @@ class AppCatalogueTest(unittest.TestCase):
             executable.touch()
             entry = _app_path_entry("chrome.exe", str(executable))
             self.assertEqual(entry.target, executable.resolve())
-            self.assertIn("chrome", entry.aliases)
+            self.assertIn("chrome", entry.executable_aliases)
+            self.assertFalse(entry.aliases)
             self.assertIsNone(_app_path_entry("bad.exe", "relative.exe"))
             self.assertIsNone(
                 _app_path_entry("bad.exe", f'"{executable}" --argument')

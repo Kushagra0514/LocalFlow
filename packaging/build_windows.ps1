@@ -168,7 +168,7 @@ $RuntimeHashes = Get-ChildItem -Path (Join-Path $PackageRoot "runtime") -File -R
     }
 $Manifest = [ordered]@{
     application = "LocalFlow"
-    version = "0.1.1"
+    version = "0.2.0"
     platform = "windows-x64"
     whisper_cpp = "b4938"
     models_bundled = $false

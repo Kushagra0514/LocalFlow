@@ -99,6 +99,9 @@ enabled = false
 provider = groq
 model = openai/gpt-oss-20b
 timeout_seconds = 15
+
+[app_aliases]
+# code = Visual Studio Code
 ```
 
 The `dictation` and `command` hotkeys must use different trigger keys; neither
@@ -161,9 +164,16 @@ dictation continues.
 
 The application catalogue is rebuilt at startup from current-user and
 all-users Start Menu shortcuts plus existing executable targets in Windows App
-Paths. Exact normalized names win; a partial name works only when it has one
-unambiguous match. LocalFlow never accepts a provider-supplied path, URL,
-argument list, or shell command. Restart LocalFlow after installing a new app.
+Paths. Matching ignores capitalization and repeated whitespace. A user alias
+wins first, followed by an exact installed name, an exact executable stem, and
+then a partial name only when it has one unambiguous match. An alias maps a
+short spoken name to an installed application name, never to a path or command.
+Invalid aliases are ignored and reported without disabling local dictation.
+Duplicate shortcuts are combined only when their resolved executable and
+arguments match, or when same-name application shortcuts share the same working
+directory. Distinct applications with overlapping names remain ambiguous.
+LocalFlow never accepts a provider-supplied path, URL, argument list, or shell
+command. Restart LocalFlow after installing a new app or changing aliases.
 
 ## Privacy and network behavior
 
@@ -195,10 +205,10 @@ threads, and the fixed 11-second JFK audio sample on an Intel Core Ultra 7
 
 | Measurement | First measured run | Three repeat runs |
 | --- | ---: | ---: |
-| Complete new LocalFlow process | 4.79 s | 3.80–5.08 s |
-| Whisper transcription | 3.60 s | 2.61–3.72 s |
-| Raw-transcript pipeline | 3.60 s | 2.61–3.72 s |
-| Peak complete-process-tree working set | 264.0 MiB | 264.2–265.2 MiB |
+| Complete new LocalFlow process | 3.12 s | 2.78–2.98 s |
+| Whisper transcription | 2.00 s | 1.90–2.06 s |
+| Raw-transcript pipeline | 2.00 s | 1.90–2.06 s |
+| Peak complete-process-tree working set | 264.3 MiB | 264.6–265.1 MiB |
 
 Every dictation starts a new native Whisper process, so model-load cost is
 included. The monitor sampled the packaged controller and its active native
@@ -247,8 +257,12 @@ process. Restart LocalFlow after changing either one.
 
 **A command reports that an application is missing or ambiguous.** Use the
 application's ordinary full Start Menu name. LocalFlow deliberately refuses to
-guess between multiple matches and does not accept paths. Restart it after
-installing a new application so the local catalogue is rebuilt.
+guess between multiple matches and does not accept paths. For a persistent
+conflict, add a name-only mapping such as `browser = Google Chrome` under
+`[app_aliases]`. Restart LocalFlow after installing an application or changing
+an alias so the local catalogue is rebuilt. If multiple distinct installed
+entries have exactly the same display name, LocalFlow reports their count and
+launches none.
 
 **LocalFlow says `Still processing`.** Wait for the next `Ready!` message.
 Overlapping recordings are intentionally blocked.
@@ -302,6 +316,14 @@ OpenAI-compatible service, add one `Provider` entry containing its fixed base
 URL, API-key environment-variable name, default model, and required headers.
 The configuration validator reads that registry, so recording, Whisper,
 output, tools, and application state do not change.
+
+A real Groq latency check is deliberately excluded from normal tests. It is
+manual, requires the current user's `GROQ_API_KEY`, consumes API usage, and runs
+only with explicit confirmation:
+
+```powershell
+uv run --frozen python -m benchmarks.measure_cloud --confirm-billable
+```
 
 Run the reusable provider contract tests against a local fake server before
 enabling the provider. They must prove the service accepts the normalized

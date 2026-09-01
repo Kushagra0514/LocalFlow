@@ -1,5 +1,8 @@
 # Phase 8 documentation and release-verification results
 
+> Historical v0.1 record. The local S1/llama.cpp pipeline below was retired and
+> must not be interpreted as v0.2 performance or packaging evidence.
+
 Date: 2026-08-28
 
 ## Outcome

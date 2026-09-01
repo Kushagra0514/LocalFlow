@@ -1,5 +1,8 @@
 # Phase 7 model management, licensing, and packaging results
 
+> Historical v0.1 record. Its S1/llama.cpp package contents and measurements do
+> not describe v0.2.
+
 Date: 2026-08-28
 
 ## Outcome

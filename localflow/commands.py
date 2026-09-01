@@ -71,6 +71,7 @@ def build_command_handler(
     model: str,
     timeout_seconds: int,
     shutdown_event: threading.Event,
+    app_aliases=(),
     client_factory=None,
     registry_factory=None,
     report=print,
@@ -91,7 +92,7 @@ def build_command_handler(
         return None
     registry_factory = registry_factory or build_builtin_registry
     try:
-        registry = registry_factory(shutdown_event)
+        registry = registry_factory(shutdown_event, app_aliases, report)
     except Exception:
         report("Command mode is unavailable; local dictation remains available.")
         return None

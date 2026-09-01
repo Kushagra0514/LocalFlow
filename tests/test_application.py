@@ -225,6 +225,9 @@ class BootstrapTest(unittest.TestCase):
             (data_dir / "config.ini").write_text(
                 defaults.replace(
                     "[commands]\nenabled = false", "[commands]\nenabled = true"
+                ).replace(
+                    "# code = Visual Studio Code",
+                    "browser = Google Chrome",
                 ),
                 encoding="utf-8",
             )
@@ -243,7 +246,7 @@ class BootstrapTest(unittest.TestCase):
                 patch.object(commands, "create_client", return_value=client),
                 patch.object(
                     commands, "build_builtin_registry", return_value=registry
-                ),
+                ) as registry_factory,
                 patch("sys.stdout", new_callable=StringIO),
             ):
                 application, _, config = main.build_application()
@@ -256,6 +259,10 @@ class BootstrapTest(unittest.TestCase):
         self.assertEqual(
             application.recorder.hotkeys[JobPurpose.COMMAND],
             config.hotkeys.command,
+        )
+        self.assertEqual(config.app_aliases, (("browser", "Google Chrome"),))
+        self.assertEqual(
+            registry_factory.call_args.args[1], config.app_aliases
         )
 
     def test_missing_command_credentials_leaves_dictation_available(self):

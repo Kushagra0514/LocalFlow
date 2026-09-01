@@ -1,7 +1,7 @@
 [project]
 name = "localflow"
-version = "0.1.1"
-description = "Fully local CPU-first push-to-talk dictation for Windows"
+version = "0.2.0"
+description = "Local-first push-to-talk dictation with optional cloud features for Windows"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

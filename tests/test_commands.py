@@ -106,6 +106,26 @@ class CommandHandlerTest(unittest.TestCase):
         self.assertIn("unavailable (credentials)", reports[0])
         self.assertNotIn("private", reports[0])
 
+    def test_aliases_are_passed_to_the_registry_without_changing_transport(self):
+        registry = FakeRegistry()
+        registry_factory = MagicMock(return_value=registry)
+        reports = []
+        shutdown = threading.Event()
+        aliases = (("browser", "Google Chrome"),)
+        handler = build_command_handler(
+            True,
+            "groq",
+            "model",
+            15,
+            shutdown,
+            aliases,
+            client_factory=MagicMock(return_value=FakeClient()),
+            registry_factory=registry_factory,
+            report=reports.append,
+        )
+        self.assertIs(handler.registry, registry)
+        registry_factory.assert_called_once_with(shutdown, aliases, reports.append)
+
     def test_success_makes_one_allowlisted_tool_request_and_has_no_output(self):
         client = FakeClient()
         registry = FakeRegistry()

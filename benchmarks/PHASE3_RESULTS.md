@@ -1,5 +1,7 @@
 # Phase 3 local S1-mini cleanup results
 
+> Historical v0.1 record. Local S1/llama.cpp cleanup is not part of v0.2.
+
 Date: 2026-08-28
 
 ## Outcome

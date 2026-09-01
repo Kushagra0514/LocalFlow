@@ -1,5 +1,8 @@
 # Phase 6 local-data and offline-operation results
 
+> Historical v0.1 record. This file is retained as migration evidence, not as a
+> description of v0.2 behavior.
+
 Date: 2026-08-28
 
 ## Outcome

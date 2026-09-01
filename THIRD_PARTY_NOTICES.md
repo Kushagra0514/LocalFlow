@@ -11,7 +11,7 @@ dependencies.
 | Whisper `base.en` Q5 | `ggml-base.en-q5_1.bin` | MIT; see `licenses/WHISPER_MODEL_LICENSE.txt` |
 | PortAudio | bundled through sounddevice | PortAudio license; see `licenses/PORTAUDIO_LICENSE.txt` |
 | Microsoft Visual C++ Runtime | bundled unmodified with native executables | Microsoft redistribution notice; see `licenses/MICROSOFT_VISUAL_CPP_RUNTIME_NOTICE.txt` |
-| CPython, certifi, NumPy, keyboard, pyperclip, sounddevice, PyInstaller | pinned in `uv.lock` | License copies exported into packaged `licenses/python-packages` |
+| CPython and frozen Python components: altgraph, certifi, cffi, keyboard, NumPy, packaging, pefile, pycparser, PyInstaller, pyinstaller-hooks-contrib, pyperclip, pywin32-ctypes, and sounddevice | pinned in `uv.lock` | License copies exported into packaged `licenses/python-packages` |
 
 ## Model and runtime integrity
 

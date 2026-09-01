@@ -13,6 +13,7 @@ from localflow.whisper import WHISPER_MODEL_SPEC
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_WHISPER_MODEL = "ggml-base.en-q5_1.bin"
+EXPECTED_RELEASE_VERSION = "0.2.0"
 
 
 class ReleaseConsistencyTest(unittest.TestCase):
@@ -71,11 +72,19 @@ class ReleaseConsistencyTest(unittest.TestCase):
         )
 
         self.assertEqual(APP_VERSION, expected)
+        self.assertEqual(expected, EXPECTED_RELEASE_VERSION)
         for relative_path, pattern in files_and_patterns:
             text = (ROOT / relative_path).read_text(encoding="utf-8-sig")
             match = re.search(pattern, text, re.MULTILINE)
             self.assertIsNotNone(match, f"Version not found in {relative_path}")
             self.assertEqual(match.group(1), expected, relative_path)
+
+    def test_release_descriptions_are_local_first(self):
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Local-first", project["project"]["description"])
+        self.assertIn("LocalFlow is a local-first", readme)
+        self.assertNotIn("Fully local", project["project"]["description"])
 
     def test_main_is_only_bootstrap(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")

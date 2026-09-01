@@ -60,6 +60,7 @@ def build_application(enable_cloud=True):
         config.ai.model,
         config.ai.timeout_seconds,
         shutdown_event,
+        config.app_aliases,
     )
     if command_handler is not None:
         handlers[JobPurpose.COMMAND] = command_handler

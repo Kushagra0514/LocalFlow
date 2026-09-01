@@ -35,8 +35,12 @@ class ToolRegistry:
         return tool.handler(request)
 
 
-def build_builtin_registry(shutdown_event: threading.Event):
-    catalogue = AppCatalogue.discover()
+def build_builtin_registry(
+    shutdown_event: threading.Event, app_aliases=(), report=print
+):
+    catalogue = AppCatalogue.discover(app_aliases=app_aliases)
+    for error in catalogue.alias_errors:
+        report(f"Application alias ignored: {error}.")
     return ToolRegistry(
         (
             Tool(

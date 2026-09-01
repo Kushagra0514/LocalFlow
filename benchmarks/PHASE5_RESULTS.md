@@ -1,5 +1,8 @@
 # Phase 5 recording-pipeline reliability results
 
+> Historical v0.1 record. References to local S1/llama.cpp describe the retired
+> architecture.
+
 Date: 2026-08-28
 
 ## Outcome

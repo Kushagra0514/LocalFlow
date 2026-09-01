@@ -50,6 +50,7 @@ class ConfigTest(unittest.TestCase):
         self.assertFalse(config.commands_enabled)
         self.assertEqual(config.ai.provider, "groq")
         self.assertEqual(config.ai.timeout_seconds, 15)
+        self.assertEqual(config.app_aliases, ())
         with self.assertRaises(FrozenInstanceError):
             config.auto_paste = True
         self.assertTrue(self.live.is_file())
@@ -71,6 +72,24 @@ class ConfigTest(unittest.TestCase):
         self.assertTrue(config.cleanup_enabled)
         self.assertTrue(config.commands_enabled)
         self.assertEqual(config.ai.timeout_seconds, 30)
+
+    def test_optional_application_aliases_are_preserved_as_immutable_pairs(self):
+        def mutate(parser):
+            parser["app_aliases"]["code"] = "Visual Studio Code"
+            parser["app_aliases"]["browser"] = "Google Chrome"
+
+        self.write_live(mutate)
+        config = self.load()
+        self.assertEqual(
+            config.app_aliases,
+            (("code", "Visual Studio Code"), ("browser", "Google Chrome")),
+        )
+        with self.assertRaises(TypeError):
+            config.app_aliases[0][0] = "changed"
+
+    def test_existing_ini_without_optional_alias_section_remains_valid(self):
+        self.write_live(lambda parser: parser.remove_section("app_aliases"))
+        self.assertEqual(self.load().app_aliases, ())
 
     def test_legacy_import_is_first_run_only_and_privacy_safe(self):
         legacy = "HOTKEY=f12\nAUTO_PASTE=true\nCLEANUP=true\n"

@@ -1,5 +1,8 @@
 # Phase 4 hotkey and output results
 
+> Historical v0.1 record. Current v0.2 behavior is documented in the README and
+> v0.2 release results.
+
 Date: 2026-08-28
 
 ## Outcome
